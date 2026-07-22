@@ -31,14 +31,43 @@ jobs:
       - name: Download Armbian base image
         run: |
           mkdir -p work output
-          ARMBIAN_URL="https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
-          echo "Downloading Armbian..."
-          wget -q --show-progress -O work/armbian.img.xz "$ARMBIAN_URL" || {
-            echo "Primary mirror failed, trying alternative..."
-            wget -q --show-progress -O work/armbian.img.xz \
-              "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
-          }
+          
+          # 尝试多个镜像源
+          MIRRORS=(
+            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
+            "https://mirrors.dotsrc.org/armbian-archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
+            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
+            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
+            "https://github.com/armbian/build/releases/download/nanopim1plus/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
+          )
+          
+          DOWNLOADED=false
+          for url in "${MIRRORS[@]}"; do
+            echo "Trying: $url"
+            if curl -L --connect-timeout 30 --max-time 600 \
+                -o work/armbian.img.xz "$url" 2>&1; then
+              if [ -f work/armbian.img.xz ] && [ $(stat -c%s work/armbian.img.xz 2>/dev/null || echo 0) -gt 1000000 ]; then
+                echo "Download OK: $(ls -lh work/armbian.img.xz | awk '{print $5}')"
+                DOWNLOADED=true
+                break
+              fi
+            fi
+            echo "Mirror failed, trying next..."
+          done
+          
+          if [ "$DOWNLOADED" = false ]; then
+            echo "ERROR: All mirrors failed. Trying direct Armbian archive..."
+            curl -L --connect-timeout 30 --max-time 900 \
+              -o work/armbian.img.xz \
+              "https://dl.armbian.com/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz" || {
+              echo "FATAL: Cannot download Armbian image. Network blocked?"
+              exit 1
+            }
+          fi
+          
+          echo "Extracting..."
           xz -d work/armbian.img.xz
+          echo "Image ready: $(ls -lh work/armbian.img | awk '{print $5}')"
 
       - name: Cross-compile ES2000 Collector
         run: |
