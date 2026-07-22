@@ -16,6 +16,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-arm-linux-gnueabihf xz-utils kpartx rsync
+          # ARM 交叉编译库
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev:armhf libjsoncpp-dev:armhf || true
 
       - name: Download Armbian
         run: |
@@ -37,29 +41,28 @@ jobs:
       - name: Cross-compile collector
         run: |
           cd collector/src
+          # 使用项目自带的 ARM .so 库
+          LIB_DIR="../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/lib"
+          INC_DIR="../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include"
           arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
-            -I../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+            -I"$INC_DIR" -L"$LIB_DIR" \
             -o collector \
             main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-            -lsqlite3 -ljsoncpp -lpthread -static 2>&1 || {
-            arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
-              -I../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
-              -o collector \
-              main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-              -lsqlite3 -ljsoncpp -lpthread
-          }
-          file collector
+            -lsqlite3 -ljsoncpp -lpthread 2>&1
+          ls -l collector && file collector
           mkdir -p ../../overlay/root/es2000/bin
           cp collector ../../overlay/root/es2000/bin/
 
       - name: Cross-compile data_api
         run: |
           cd ES1000_ENYI_SERVER/web_cgi/data_api
+          LIB_DIR="../../webcgi_set/lib"
+          INC_DIR="../../webcgi_set/include"
           arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
-            -I../../webcgi_set/include \
+            -I"$INC_DIR" -L"$LIB_DIR" \
             -o data_api.cgi data_api.cpp \
-            -lsqlite3 -ljsoncpp
-          file data_api.cgi
+            -lsqlite3 -ljsoncpp 2>&1
+          ls -l data_api.cgi && file data_api.cgi
           mkdir -p ../../../overlay/root/es2000/bin
           cp data_api.cgi ../../../overlay/root/es2000/bin/
 
