@@ -1,83 +1,33 @@
-name: Build ES2000 Firmware Image
+name: Build ES2000 Binaries
 
 on:
   push:
     branches: [master, main]
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install ARM cross-compiler
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential g++-arm-linux-gnueabihf \
-            libsqlite3-dev:armhf libjsoncpp-dev:armhf \
-            qtbase5-dev:armhf libqt5sql5-sqlite:armhf \
-            wget xz-utils kpartx qemu-user-static rsync \
-            || true
-          # 如果 armhf 包不可用，手动安装交叉编译工具
-          sudo apt-get install -y \
-            g++-arm-linux-gnueabihf \
-            wget xz-utils kpartx rsync
+          sudo apt-get install -y g++-arm-linux-gnueabihf
 
-      - name: Download Armbian base image
-        run: |
-          mkdir -p work output
-          
-          # 尝试多个镜像源
-          MIRRORS=(
-            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://mirrors.dotsrc.org/armbian-archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://github.com/armbian/build/releases/download/nanopim1plus/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-          )
-          
-          DOWNLOADED=false
-          for url in "${MIRRORS[@]}"; do
-            echo "Trying: $url"
-            if curl -L --connect-timeout 30 --max-time 600 \
-                -o work/armbian.img.xz "$url" 2>&1; then
-              if [ -f work/armbian.img.xz ] && [ $(stat -c%s work/armbian.img.xz 2>/dev/null || echo 0) -gt 1000000 ]; then
-                echo "Download OK: $(ls -lh work/armbian.img.xz | awk '{print $5}')"
-                DOWNLOADED=true
-                break
-              fi
-            fi
-            echo "Mirror failed, trying next..."
-          done
-          
-          if [ "$DOWNLOADED" = false ]; then
-            echo "ERROR: All mirrors failed. Trying direct Armbian archive..."
-            curl -L --connect-timeout 30 --max-time 900 \
-              -o work/armbian.img.xz \
-              "https://dl.armbian.com/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || {
-              echo "FATAL: Cannot download Armbian image. Network blocked?"
-              exit 1
-            }
-          fi
-          
-          echo "Extracting..."
-          xz -d work/armbian.img.xz
-          echo "Image ready: $(ls -lh work/armbian.img | awk '{print $5}')"
-
-      - name: Cross-compile ES2000 Collector
+      - name: Cross-compile collector
         run: |
           cd collector/src
           arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
             -I../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
             -o collector \
             main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-            -lsqlite3 -ljsoncpp -lpthread -static 2>&1 || {
-            echo "Static link failed, trying dynamic..."
+            -lsqlite3 -ljsoncpp -lpthread -static || {
+            echo "Static failed, trying dynamic..."
             arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
               -I../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
               -o collector \
@@ -85,9 +35,8 @@ jobs:
               -lsqlite3 -ljsoncpp -lpthread
           }
           file collector
-          mkdir -p ../../overlay/root/es2000/bin
-          cp collector ../../overlay/root/es2000/bin/
-          chmod +x ../../overlay/root/es2000/bin/collector
+          mkdir -p ../../output/bin
+          cp collector ../../output/bin/
 
       - name: Cross-compile data_api CGI
         run: |
@@ -97,15 +46,27 @@ jobs:
             -o data_api.cgi data_api.cpp \
             -lsqlite3 -ljsoncpp
           file data_api.cgi
-          mkdir -p ../../../../overlay/root/es2000/bin
-          cp data_api.cgi ../../../../overlay/root/es2000/bin/
-          chmod +x ../../../../overlay/root/es2000/bin/data_api.cgi
+          mkdir -p ../../../output/bin
+          cp data_api.cgi ../../../output/bin/
 
-      - name: Create systemd services
+      - name: Create install script
         run: |
-          mkdir -p overlay/etc/systemd/system
+          cat > output/install.sh << 'SCRIPT'
+          #!/bin/bash
+          # ES2000 一键安装脚本（在 Nano Pi 上以 root 运行）
+          set -e
+          echo "=== ES2000 安装 ==="
 
-          cat > overlay/etc/systemd/system/es2000-collector.service << 'EOF'
+          apt-get update
+          apt-get install -y libsqlite3-0 libjsoncpp24 libqt5sql5-sqlite lighttpd
+
+          mkdir -p /root/es2000/{bin,logs,data,www}
+
+          cp bin/collector bin/data_api.cgi /root/es2000/bin/
+          chmod +x /root/es2000/bin/*
+
+          # systemd 服务
+          cat > /etc/systemd/system/es2000-collector.service << 'EOF'
           [Unit]
           Description=ES2000 Data Collector
           After=network.target
@@ -119,76 +80,27 @@ jobs:
           WantedBy=multi-user.target
           EOF
 
-          cat > overlay/etc/systemd/system/es2000-display.service << 'EOF'
-          [Unit]
-          Description=ES2000 Display
-          After=es2000-collector.service
-          [Service]
-          Type=simple
-          ExecStart=/root/es2000/bin/elevator_display
-          Environment=DISPLAY=:0
-          Environment=QT_QPA_PLATFORM=linuxfb
-          Restart=always
-          RestartSec=10
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
-      - name: Create init script
-        run: |
-          mkdir -p overlay/root/es2000
-
-          cat > overlay/root/es2000/start.sh << 'EOF'
-          #!/bin/bash
-          echo "=== ES2000 初始化 ==="
-          mkdir -p /root/es2000/logs /root/es2000/data
           systemctl daemon-reload
           systemctl enable es2000-collector
           systemctl start es2000-collector
+
+          echo ""
+          echo "=== 安装完成 ==="
           echo "collector: $(systemctl is-active es2000-collector)"
-          echo "数据接口: http://192.168.1.120:9009/"
-          EOF
-          chmod +x overlay/root/es2000/start.sh
+          echo "数据接口: http://$(hostname -I | awk '{print $1}'):9009/"
+          echo "Web后台:  http://$(hostname -I | awk '{print $1}')/cgi-bin/data_api.cgi?cmd=list"
+          SCRIPT
+          chmod +x output/install.sh
 
-      - name: Inject overlay into Armbian image
+      - name: Package
         run: |
-          IMG="work/armbian.img"
-          echo "Image size: $(ls -lh $IMG | awk '{print $5}')"
-
-          # 挂载 rootfs 分区
-          LOOP=$(sudo losetup -f --show -P "$IMG")
-          echo "Loop device: $LOOP"
-
-          # 第二个分区是 rootfs
-          ROOT_PART="${LOOP}p2"
-          sudo mkdir -p /mnt/rootfs
-          sudo mount "$ROOT_PART" /mnt/rootfs
-
-          # 同步 overlay
-          echo "Syncing overlay..."
-          sudo rsync -av overlay/ /mnt/rootfs/
-
-          # 设置首次启动脚本
-          sudo bash -c "echo '/bin/bash /root/es2000/start.sh' >> /mnt/rootfs/etc/rc.local"
-          sudo chmod +x /mnt/rootfs/etc/rc.local
-
-          # 卸载
-          sudo umount /mnt/rootfs
-          sudo losetup -d "$LOOP"
-
-      - name: Compress and rename firmware
-        run: |
-          VERSION=$(date +%Y%m%d-%H%M)
-          FW_NAME="ES2000_firmware_${VERSION}.img"
-          mv work/armbian.img "output/${FW_NAME}"
           cd output
-          xz -1 "${FW_NAME}"
-          echo "FIRMWARE=${FW_NAME}.xz" >> $GITHUB_ENV
-          ls -lh
+          tar czf ../es2000-binaries.tar.gz .
+          ls -lh ../es2000-binaries.tar.gz
 
-      - name: Upload firmware artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ES2000-Firmware
-          path: output/*.img.xz
+          name: ES2000-Binaries
+          path: es2000-binaries.tar.gz
           retention-days: 90
