@@ -1,23 +1,38 @@
-name: Build ES2000 Binaries
+name: Build ES2000 Full Image
 
 on:
-  push:
-    branches: [master, main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install ARM cross-compiler
+      - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-arm-linux-gnueabihf
+          sudo apt-get install -y g++-arm-linux-gnueabihf xz-utils kpartx rsync
+
+      - name: Download Armbian
+        run: |
+          mkdir -p work output
+          URL="https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+          echo "Downloading: $URL"
+          curl -L --connect-timeout 30 --max-time 900 -o work/armbian.img.xz "$URL" || {
+            echo "hosthatch failed, trying imola..."
+            curl -L --connect-timeout 30 --max-time 900 -o work/armbian.img.xz \
+              "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || {
+              echo "FATAL: Cannot download Armbian"
+              exit 1
+            }
+          }
+          ls -lh work/armbian.img.xz
+          xz -d work/armbian.img.xz
+          ls -lh work/armbian.img
 
       - name: Cross-compile collector
         run: |
@@ -26,8 +41,7 @@ jobs:
             -I../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
             -o collector \
             main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-            -lsqlite3 -ljsoncpp -lpthread -static || {
-            echo "Static failed, trying dynamic..."
+            -lsqlite3 -ljsoncpp -lpthread -static 2>&1 || {
             arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
               -I../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
               -o collector \
@@ -35,10 +49,10 @@ jobs:
               -lsqlite3 -ljsoncpp -lpthread
           }
           file collector
-          mkdir -p ../../output/bin
-          cp collector ../../output/bin/
+          mkdir -p ../../overlay/root/es2000/bin
+          cp collector ../../overlay/root/es2000/bin/
 
-      - name: Cross-compile data_api CGI
+      - name: Cross-compile data_api
         run: |
           cd ES1000_ENYI_SERVER/web_cgi/data_api
           arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
@@ -46,27 +60,14 @@ jobs:
             -o data_api.cgi data_api.cpp \
             -lsqlite3 -ljsoncpp
           file data_api.cgi
-          mkdir -p ../../../output/bin
-          cp data_api.cgi ../../../output/bin/
+          mkdir -p ../../../overlay/root/es2000/bin
+          cp data_api.cgi ../../../overlay/root/es2000/bin/
 
-      - name: Create install script
+      - name: Create services and scripts
         run: |
-          cat > output/install.sh << 'SCRIPT'
-          #!/bin/bash
-          # ES2000 一键安装脚本（在 Nano Pi 上以 root 运行）
-          set -e
-          echo "=== ES2000 安装 ==="
+          mkdir -p overlay/etc/systemd/system overlay/root/es2000
 
-          apt-get update
-          apt-get install -y libsqlite3-0 libjsoncpp24 libqt5sql5-sqlite lighttpd
-
-          mkdir -p /root/es2000/{bin,logs,data,www}
-
-          cp bin/collector bin/data_api.cgi /root/es2000/bin/
-          chmod +x /root/es2000/bin/*
-
-          # systemd 服务
-          cat > /etc/systemd/system/es2000-collector.service << 'EOF'
+          cat > overlay/etc/systemd/system/es2000-collector.service << 'EOF'
           [Unit]
           Description=ES2000 Data Collector
           After=network.target
@@ -80,27 +81,42 @@ jobs:
           WantedBy=multi-user.target
           EOF
 
+          cat > overlay/root/es2000/start.sh << 'EOF'
+          #!/bin/bash
+          echo "=== ES2000 Init ==="
+          mkdir -p /root/es2000/{logs,data}
           systemctl daemon-reload
           systemctl enable es2000-collector
           systemctl start es2000-collector
+          echo "Port 9009: $(systemctl is-active es2000-collector)"
+          EOF
+          chmod +x overlay/root/es2000/start.sh
 
-          echo ""
-          echo "=== 安装完成 ==="
-          echo "collector: $(systemctl is-active es2000-collector)"
-          echo "数据接口: http://$(hostname -I | awk '{print $1}'):9009/"
-          echo "Web后台:  http://$(hostname -I | awk '{print $1}')/cgi-bin/data_api.cgi?cmd=list"
-          SCRIPT
-          chmod +x output/install.sh
-
-      - name: Package
+      - name: Inject into image
         run: |
-          cd output
-          tar czf ../es2000-binaries.tar.gz .
-          ls -lh ../es2000-binaries.tar.gz
+          IMG="work/armbian.img"
+          LOOP=$(sudo losetup -f --show -P "$IMG")
+          ROOT_PART="${LOOP}p2"
+          sudo mkdir -p /mnt/rootfs
+          sudo mount "$ROOT_PART" /mnt/rootfs
+          sudo rsync -av overlay/ /mnt/rootfs/
+          sudo bash -c "echo '/bin/bash /root/es2000/start.sh' >> /mnt/rootfs/etc/rc.local"
+          sudo chmod +x /mnt/rootfs/etc/rc.local
+          sudo umount /mnt/rootfs
+          sudo losetup -d "$LOOP"
 
-      - name: Upload artifact
+      - name: Package firmware
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M)
+          FW_NAME="ES2000_firmware_${VERSION}.img"
+          mv work/armbian.img "output/${FW_NAME}"
+          cd output
+          xz -1 "${FW_NAME}"
+          ls -lh
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ES2000-Binaries
-          path: es2000-binaries.tar.gz
-          retention-days: 90
+          name: ES2000-Firmware-Image
+          path: output/*.img.xz
+          retention-days: 30
