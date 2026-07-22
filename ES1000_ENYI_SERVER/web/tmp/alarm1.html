@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link href="css/css.css" rel="stylesheet" type="text/css" />
+        <script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+        <script src="js/JS.js" type="text/javascript"></script>
+        <script src="js/js_display.js" type="text/javascript"></script>
+        <!--[if lt IE 9]>
+            <script src="js/json/json2.js" type="text/javascript"></script>
+        <![endif]-->
+        <script src="js/layer/layer.js" type="text/javascript"></script>
+        <script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+        <style type="text/css">
+            .msg_tr { height:auto; padding-bottom: 20px;}
+            #dev_list{ border-top-width: 0; }
+        </style>
+        <title>历史故障</title>
+    </head>
+    <body>
+        <div class="bd">
+	        <div class="logo_tr">
+		        电梯运行实时监控系统
+	        </div>
+	        <div class="set_tr">
+		        <ul>
+			        <li><a href="index.html">主机配置</a></li>
+                    <li class="set_tr_li"><a href="history_list.html">历史故障</a></li>
+			        <li><a href="device.html">设备管理</a></li>
+                    <li><a href="msgsend.html">报警推送人员</a></li>
+                    <li><a href="post.html">实时数据转发</a></li>
+                    <li><a href="updateuser.html">修改登录密码</a></li>
+		        </ul>
+	        </div>
+
+            <!--页面开始-->
+            <div id="page1" class="msg_tr" style="overflow:hidden;">
+                <table border="0" cellpadding="0" cellspacing="0" class="alm_tab" style="margin-top:10px;">
+                    <tr class="alm_tr_title">
+                        <td class="alm_td1">ID</td>
+                        <td class="alm_td2">设备名称</td>
+                        <td class="alm_td3">楼层</td>
+                        <td class="alm_td4">状态</td>
+                        <td class="alm_td4"></td>
+                        <td class="alm_td5">故障描述</td>
+                        <td class="alm_td6">报送时间</td>
+                    </tr>
+                </table>
+                
+                <table id="alrm_list" border="0" cellpadding="0" cellspacing="0" class="alm_tab">
+<!--
+                    <tr>
+                        <td class="alm_td1">ID</td>
+                        <td class="alm_td2">设备名称</td>
+                        <td class="alm_td3">楼层</td>
+                        <td class="alm_td4">状态</td>
+                        <td class="alm_td4">有人</td>
+                        <td class="alm_td5">卡层 困人 冲顶 超速 蹲底 开门走梯</td>
+                        <td class="alm_td6">报送时间</td>
+                    </tr>
+-->
+                </table>
+            
+            </div>
+            <!--页面结束-->
+        </div>
+    </body>
+</html>
+
+<script type="text/javascript">
+    $(document).ready(function(){
+        //get_alarmNum();
+        var alarmFile = null;
+        try{ alarmFile = getQueryString("date"); }catch(e){ alarmFile = null; }
+        if(!alarmFile){ location.href = "index.html"; return; }
+        
+        cmd_get_ALLAlarmData(alarmFile);
+    });
+    
+/*
+    函数名称：get_alarmNum
+    函数功能：获取报警数量
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-02-24
+*/
+function get_alarmNum(){
+    var alarmFile = null;
+    try{ alarmFile = getQueryString("date"); }catch(e){ alarmFile = null; }
+    if(!alarmFile){ location.href = "index.html"; return; }
+    
+    var postJson = {};
+    postJson.display = 1;
+    postJson.data = alarmFile;
+
+    var _load = layer.load();
+    $.post(
+        "cgi-bin/alarm_show.cgi",
+        JSON.stringify(postJson),
+        function (data, status) {
+            layer.close(_load);
+            if (status != "success") { layer.alert("连接服务器失败"); return; }
+            var temp = eval('(' + data + ')');
+            switch (parseInt(temp.error)) {
+                case 399: location.href = "login.html"; return;
+                case 0: break;
+                case 401: layer.msg(temp.data); return;
+                default: layer.alert(temp.data); return;
+            }
+
+            alert(data);
+        },
+        "html"
+    );
+}
+    
+/*
+    函数功能：alarmData_show
+    函数功能：展示报警信息
+    传入参数：_jsonData
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2016-10-21
+*/
+function alarmData_show(_jsonData){
+    /*参数校验*/
+    if(_jsonData==null || _jsonData.length<=0x00) return;
+
+    var tabobj = $("#alrm_list")
+
+    tabobj.empty();
+
+    for(var i=0x00; i<_jsonData.length; i++){
+        switch(~~_jsonData[i]["status"]){
+            case 1: _jsonData[i]["status"] = "上"; break;
+            case 2: _jsonData[i]["status"] = "下"; break;
+            default: _jsonData[i]["status"] = "停";
+        }
+
+        _jsonData[i]["people"] = ~~_jsonData[i]["people"] > 0 ? "有人" : "没人";
+
+        var alarmStr = "";
+        alarmStr += ~~_jsonData[i]["kunren"] > 0 ? "困人&nbsp" : "";
+        alarmStr += ~~_jsonData[i]["power"] > 0 ? "掉电&nbsp" : "";
+        alarmStr += ~~_jsonData[i]["up_alarm"] > 0 ? "冲顶&nbsp" : "";
+        alarmStr += ~~_jsonData[i]["down_alarm"] > 0 ? "蹲底&nbsp" : "";
+        alarmStr += ~~_jsonData[i]["speeding"] > 0 ? "超速&nbsp" : "";
+        alarmStr += ~~_jsonData[i]["run_door"] > 0 ? "开门走梯&nbsp" : "";
+        alarmStr += ~~_jsonData[i]["kaceng"] > 0 ? "卡层" : "";
+
+        var tmp = "";
+        tmp += '<tr>';
+        tmp += '<td class="alm_td1">'+ _jsonData[i]["dev_id"] +'</td>';
+        tmp += '<td class="alm_td2">'+ _jsonData[i]["dev_name"] +'</td>';
+        tmp += '<td class="alm_td3">';
+        if(~~_jsonData["ds_dx"]==0){ tmp += "地下 / "; } else{ tmp += "地上 / "; }
+        tmp += _jsonData[i]["lou_ceng"] +'</td>';
+        tmp += '<td class="alm_td4">'+ _jsonData[i]["status"] +'</td>';
+        tmp += '<td class="alm_td4">'+ _jsonData[i]["people"] +'</td>';
+        tmp += '<td class="alm_td5" style="color: red;">'+ alarmStr +'</td>';
+        tmp += '<td class="alm_td6">'+ _jsonData[i]["time"] +'</td>';
+        tmp += '</tr>';
+
+        tabobj.append(tmp);
+    }
+
+    Table_LineColor("alrm_list", "#fff", "#c5dee0", "#f8cd90");
+}
+
+/*
+    函数名称：cmd_get_ALLAlarmData
+    函数功能：获取所有设备的某个月份的报警信息
+    传入参数：_data
+    传出数据：无 日期 201610
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2016-10-21
+*/
+function cmd_get_ALLAlarmData(_data){
+    var postJson = {};
+    postJson.display = 2;
+    postJson.alarm_data = _data;
+
+    var _load = layer.load();
+    $.post(
+        "cgi-bin/alarm.cgi",
+        JSON.stringify(postJson),
+        function (data, status) {
+            layer.close(_load);
+            if (status != "success") { layer.alert("连接服务器失败"); return; }
+            var temp = eval('(' + data + ')');
+            switch (parseInt(temp.error)) {
+                case 399: location.href = "login.html"; return;
+                case 0: break;
+                case 401: layer.msg(temp.data); return;
+                default: layer.alert(temp.data); return;
+            }
+
+            alarmData_show(temp.data);
+        },
+        "html");
+}
+    
+</script>

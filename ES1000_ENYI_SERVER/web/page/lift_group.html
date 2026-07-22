@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="/js/jquery-1.8.3.min.js"></script>
+    <script type="text/javascript" src="/js/layer/layer.js"></script>
+    <script type="text/javascript" src="/js/layer/extend/layer.ext.js"></script>
+    <script type="text/javascript" src="/js/JS.js"></script>
+    <style type="text/css">
+         /*- scrollbar -*/
+         ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-thumb{
+            background-color: #0580B9;
+            -webkit-border-radius: 5px;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:vertical:hover{
+            background-color: #666;
+        }
+        ::-webkit-scrollbar-thumb:vertical:active{
+            background-color: #333;
+        }
+        ::-webkit-scrollbar-button{
+            display: none;
+        }
+        ::-webkit-scrollbar-track{
+        background: rgba(0,0,0,0.2);
+        }
+        .l_bd{ margin: 0px 0px 0px 15px; }
+        .d_box{ width: 320px; float: left; background-image: url(/image/itembg.png);; background-size: 100% 100%; margin: 5px;  color: aliceblue; padding: 5px;
+                font-size: 12px; }
+        .d_title{ width: 320px; height: 30px; line-height: 30px; font-family: 微软雅黑; font-size: 12; text-indent: 10px; 
+                background-color:#1E90FF; white-space:nowrap; overflow:hidden; }
+        .d_real{ width: 320px; height: 150px; margin: 10px auto 10px auto; }
+        .d_real_l{ margin-left: 10px; width: 115px; height: 180px; float: left; }
+        .d_real_l_lc{ width: 100%; height: 58px; text-align: center; line-height: 55px; font-size: 48px; font-weight: bolder; margin-top: 10px;margin-bottom: 10px;}
+        .d_real_l_st{ widows: 100%; height: 40px; margin: 5px auto 5px auto; } 
+        .d_real_l_st div{ width:30px; height: 30px; border:2px solid rgb(30,144,255); margin: 0 2px 0 2px; float: left; text-align: center;padding-top: 4px;}
+        .d_real_tb{ margin-right: 5px; width: 180px; border:1px solid rgba(30,144,255, 0.1); border-width: 1px 1px 0 0; float: right; font-size: 10px; }
+        .d_real_tb td{ height: 23px; border:1px solid rgba(30,144,255, 0.1); border-width: 0 0 1px 1px; line-height: 19px; text-indent: 5px; font-family: 宋体; }
+        .d_real_td1{ width: 50px; }
+        .d_real_td2{ width: 40px; }
+        .d_real_td2_long{ width: 160px; }
+        .d_alarm{ width: 310px; height: 45px; margin: 0 auto 2px 10px; line-height: 26px;}
+        .d_alarm_l{ width: 50px; height: 46px;  float: left; text-align: center; line-height:46px;}
+        .d_alarm_r{ width: 240px; height: 46px; border:0px solid rgb(92, 102, 116); float:right; text-indent: 20px; text-align: left;line-height: 46px;overflow:auto;}
+    </style>
+</head>
+<body>
+    <div id="qtbd" class="l_bd">
+    </div>
+</body>
+</html>
+
+<script type="text/javascript">
+
+var qt_liftGroup_options = {
+    "jsonReal" : null,
+    "dateTime" : 0
+};
+
+/*禁用滚轮*/
+function disabledMouseWheel() {  
+  if (document.addEventListener) {  
+    document.addEventListener('DOMMouseScroll', scrollFunc, false);  
+  }//W3C  
+  window.onmousewheel = document.onmousewheel = scrollFunc;//IE/Opera/Chrome  
+}  
+function scrollFunc(evt) {  
+  return false;  
+}  
+window.onload=disabledMouseWheel; 
+
+/*禁用右键*/
+document.oncontextmenu = function(){
+    event.returnValue = false;
+}
+
+/*禁用选择*/
+document.onselectstart = function(){
+    event.returnValue = false;
+} 
+
+$(document).ready(function(){
+    if(!QT_devOfGroup_load()) return;
+    resp_real();
+});
+
+/*
+    函数名称：QT_create_lift_box
+    函数功能：创建一个设备的显示盒子
+    传入参数：
+                dev_classOBJ    设备对象
+                qzstr           盒子前缀
+                css_display     是否显示
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2107-05-26
+*/
+function QT_create_lift_box(dev_classOBJ, qzstr, css_display){
+    var tmp = "";
+    tmp += '<div class="d_box" id="'+ qzstr +'_'+ dev_classOBJ.id +'" style="display:'+ css_display +';">';
+    tmp += '<div class="d_title" id="'+ qzstr +'_title_'+ dev_classOBJ.id +'">'+ window.parent.get_dev_gname(dev_classOBJ) +'</div>';
+    tmp += '<div class="d_real">';
+    tmp += '<div class="d_real_l">';
+    tmp += '<div class="d_real_l_lc" id="'+ qzstr +'_lc_'+ dev_classOBJ.id +'">0</div>';
+    tmp += '<div class="d_real_l_st">';
+    tmp += '<div id="'+ qzstr +'_img_status_'+ dev_classOBJ.id +'"><input type="hidden" value="-1" /><img src="/image/target/stop.png" width="26px" height="26px"></div>';
+    tmp += '<div id="'+ qzstr +'_img_person_'+ dev_classOBJ.id +'"><img src="/image/target/youren.png" width="26px" height="26px"></div>';
+    tmp += '<div id="'+ qzstr +'_img_door_'+ dev_classOBJ.id +'"><input type="hidden" value="-1" /><img src="/image/target/close.png" width="26px" height="26px"></div>';
+    tmp += '</div>';
+    tmp += '<div class="d_real_l_st">'
+    tmp += '<div id="' + qzstr + '_img_electro_' + dev_classOBJ.id + '" ><input type="hidden" value-"-1"/><img src="/image/target/ddc.png" width="26px" height="26px"></div>';
+    tmp += '<div id="' + qzstr + '_img_posture_' + dev_classOBJ.id + '" ><input type="hidden" value-"-1"/><img src="/image/target/wb.png" width="26px" height="26px"></div>';
+    tmp += '<div id="' + qzstr + '_img_manual_' + dev_classOBJ.id + '" ><input type="hidden" value-"-1"/><img src="/image/target/sdbj.png" width="26px" height="26px"></div>';
+    tmp += '</div>';
+    tmp += '</div>';
+    tmp += '<table class="d_real_tb" border="0" cellpadding="0" cellspacing="0" id="table1">';
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">设备ID</td>';
+    tmp += '<td class="d_real_td2" colspan="3">'+ dev_classOBJ.id +'</td>';
+    tmp += '</tr>';
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">运行状态</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_status_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '<td class="d_real_td1">温度</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_temp_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '</tr>';
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">有无人</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_person_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '<td class="d_real_td1">湿度</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_hum_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '</tr>';
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">开关门</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_door_'+ dev_classOBJ.id +'">--</td>';
+    // tmp += '<td class="d_real_td1">左右偏移</td>';
+    // tmp += '<td class="d_real_td2" id="'+ qzstr +'_degree_lr_'+ dev_classOBJ.id +'">--</td>';
+    // tmp += '</tr>';
+    // tmp += '<tr>';
+    tmp += '<td class="d_real_td1">电梯速度</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_speed_'+ dev_classOBJ.id +'">--</td>';
+    // tmp += '<td class="d_real_td1">前后偏移</td>';
+    // tmp += '<td class="d_real_td2" id="'+ qzstr +'_degree_fb_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '</tr>';
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">电池电压</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_voltage_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '<td class="d_real_td1">电梯振幅</td>';
+    tmp += '<td class="d_real_td2" id="'+ qzstr +'_shake_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '</tr>'
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">更新时间</td>';
+    tmp += '<td class="d_real_td2" colspan="3" id="'+ qzstr +'_time_'+ dev_classOBJ.id +'">--</td>';
+    tmp += '</tr>';
+    tmp += '<tr>';
+    tmp += '<td class="d_real_td1">维保时间</td>';
+    tmp += '<td class="d_real_td2"  colspan="3" id="'+ qzstr +'_maintain_' + dev_classOBJ.id + '">-- </td>';
+    tmp += '</tr>';
+    tmp += '</table>';
+    tmp += '</div>';
+    tmp += '<img src="/image/line.png" width="326px">'
+    tmp += '<div class="d_alarm">';
+    tmp += '<div class="d_alarm_l">报警信息</div>';
+    tmp += '<div class="d_alarm_r" id="'+ qzstr +'_alarm_'+ dev_classOBJ.id +'">离线</div>';
+    tmp += '</div>';
+    tmp += '</div>';
+
+    return tmp;
+}
+
+/*
+    函数名称：QT_create_lift_body
+    函数功能：创建设备显示区
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function QT_create_lift_body(devList_obj){
+    var tmp = "";
+    for(var i=0x00; i<devList_obj.length; i++) tmp += QT_create_lift_box(devList_obj[i], "larm", "none");
+    for(var i=0x00; i<devList_obj.length; i++) tmp += QT_create_lift_box(devList_obj[i], "lrt", "block");
+    $("#qtbd").empty();
+    $("#qtbd").html(tmp);
+}
+
+/*
+    函数名称：QT_devOfGroup_load
+    函数功能；加载指定组的设备
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-27
+*/
+function QT_devOfGroup_load(){
+    /*获取组对象*/
+    var groupID = ~~getQueryString("id"); 
+    var groupCalss = window.parent.get_group_classOBJ(groupID);
+    if(groupCalss == null){ layer.msg("获取组信息失败"); return false; }
+
+    /*获取设备信息*/
+    var glist = [];
+    window.parent.get_groupAllDev_classOBJ(groupCalss, glist);
+    if(glist.length <= 0x00){ layer.msg("该组下没有添加设备"); return false; }
+
+    QT_create_lift_body(glist);
+    return true;
+}
+
+/*
+    函数名称：QT_devTimeOut_check
+    函数功能：单台设备超时检测
+    传入参数：jsonData   单台设备实时信息
+    传出数据：true 超时 false 没有超时
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function QT_dev_isTimeOut(jsonData){
+    var ndate = new Date(Date.parse(qt_liftGroup_options.dateTime.replace(/-/g, "/"))); 
+    var odate = new Date(Date.parse(jsonData["Parameters"]["Recv_time"].replace(/-/g, "/"))); 
+
+    var sjc = ndate.getTime() - odate.getTime(); 
+    if(sjc/1000 > 120) return true;
+
+    return false;
+}
+
+/*
+    函数名称：QT_getAlarm_ont
+    函数功能：获取单台设备的报警信息
+    传入参数：jsonData   单台设备实时信息
+    传出数据：报警信息字符串
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function QT_getAlarm_out(josnData){
+    var alarmStr = "";
+    alarmStr += ~~josnData["Alarm"]["Kunren"]           ? "困人&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Power"]            ? "掉电&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["UP_Alarm"]         ? "冲顶&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Down_Alarm"]       ? "蹲底&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Speeding"]         ? "超速&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Run_door"]         ? "开门走梯&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Kaceng"]           ? "卡层&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Stp_DoorUnopen"]   ? "停梯不开门&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Stp_DoorUnclose"]  ? "停梯不关门&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Stp_Reapet"]       ? "重复开关门&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Slant_lr"]         ? "电梯左右倾斜&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Slant_fb"]         ? "电梯前后倾斜&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Amplitude"]        ? "电梯震动&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Manual_Alarm"]     ? "手动报警&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Electromobile"]    ? "电动车入梯&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Voltage"]          ? "电池电压低&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Power_Down"]       ? "外部掉电&nbsp" : "";
+    alarmStr += ~~josnData["Alarm"]["Maintain"]         ? "长期未维保" : "";
+    return alarmStr;
+}
+
+/*
+    函数名称：QT_devUpdata_one
+    函数功能：单台设备刷新数据
+    传入参数：
+                jsonData 单台设备的实时信息
+                qzstr    前缀信息
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function QT_devUpdate_one(jsonData, qzstr){
+    var id = jsonData["Parameters"]["ID"];
+    /*楼层*/
+    var louceng = "";
+    louceng = ~~jsonData["State"]["DS_DX"] ? "" : "-";
+    $("#"+ qzstr +"_lc_" + id).html(louceng + jsonData["State"]["Lou_Ceng"]);
+
+    /*运行状态*/
+    switch(~~jsonData["State"]["status"]){
+        case 0: 
+                if($("#" + qzstr + "_img_status_" + id).find("input:eq(0)").val() != jsonData["State"]["status"]){ 
+                    $("#"+ qzstr +"_status_" + id).html("停"); 
+                    $("#" + qzstr + "_img_status_" + id).find("input:eq(0)").val(jsonData["State"]["status"]);
+                    $("#" + qzstr + "_img_status_" + id).find("img:eq(0)").attr("src","/image/target/stop.png");
+                }
+                break;
+        case 1: 
+                if($("#" + qzstr + "_img_status_" + id).find("input:eq(0)").val() != jsonData["State"]["status"]){
+                    $("#"+ qzstr +"_status_" + id).html("上"); 
+                    $("#" + qzstr + "_img_status_" + id).find("input:eq(0)").val(jsonData["State"]["status"]);
+                    $("#" + qzstr + "_img_status_" + id).find("img:eq(0)").attr("src","/image/target/up.png");
+                }
+                break;
+        default: 
+                if($("#" + qzstr + "_img_status_" + id).find("input:eq(0)").val() != jsonData["State"]["status"]){ 
+                    $("#"+ qzstr +"_status_" + id).html("下"); 
+                    $("#" + qzstr + "_img_status_" + id).find("input:eq(0)").val(jsonData["State"]["status"]);
+                    $("#" + qzstr + "_img_status_" + id).find("img:eq(0)").attr("src","/image/target/down.png");
+                }
+                break;
+    }
+
+    /*有无人*/
+    switch(~~jsonData["State"]["People"]){
+        case 0: 
+                $("#" + qzstr + "_person_" + id).html("无人"); 
+                $("#" + qzstr + "_img_person_" + id).find("img:eq(0)").css("opacity", 0.1); 
+                break;
+        default: 
+                $("#" + qzstr + "_person_" + id).html("有人"); 
+                $("#" + qzstr + "_img_person_" + id).find("img:eq(0)").css("opacity", 1); 
+                break;
+    }
+
+    // /*有无人困人图标显示*/
+    // if(~~jsonData["Alarm"]["Kunren"]){ $("#" + qzstr + "_img_person_" + id).css("background-position", "0px -68px");}
+    // else{
+    //     switch(~~jsonData["State"]["People"]){
+    //         case 0: $("#" + qzstr + "_img_person_" + id).css("background-position", "0px -33px"); break;
+    //         default:  $("#" + qzstr + "_img_person_" + id).css("background-position", "0px 0px"); break;
+    //     }
+    // }
+
+    /*开关门*/
+    switch(~~jsonData["State"]["Door"]){
+        case 0: 
+            if($("#" + qzstr + "_door_" + id).find("input:eq(0)").val() != jsonData["State"]["Door"]){
+                $("#" + qzstr + "_door_" + id).html("关门"); 
+                $("#" + qzstr + "_door_" + id).find("input:eq(0)").val(jsonData["State"]["Door"]);
+                $("#" + qzstr + "_img_door_" + id).find("img:eq(0)").attr("src","/image/target/close.png");
+            }
+            break;
+        default: 
+            if($("#" + qzstr + "_door_" + id).find("input:eq(0)").val() != jsonData["State"]["Door"]){
+                $("#" + qzstr + "_door_" + id).html("开门"); 
+                $("#" + qzstr + "_door_" + id).find("input:eq(0)").val(jsonData["State"]["Door"]);
+                $("#" + qzstr + "_img_door_" + id).find("img:eq(0)").attr("src","/image/target/open.png");
+            }
+            break;
+    }
+
+    /*电动车标志显示*/
+    if(~~jsonData["Alarm"]["Electromobile"]){
+        $("#" + qzstr + "_img_electro_" + id).find("img:eq(0)").css("opacity", 1); 
+    } else {
+        $("#" + qzstr + "_img_electro_" + id).find("img:eq(0)").css("opacity", 0.1); 
+    }
+
+    /*手动报警标志显示*/ 
+    if(~~jsonData["Alarm"]["Manual_Alarm"]){
+        $("#" + qzstr + "_img_manual_" + id).find("img:eq(0)").css("opacity", 1); 
+    } else {
+        $("#" + qzstr + "_img_manual_" + id).find("img:eq(0)").css("opacity", 0.1); 
+    }
+
+    /*判断是否维保*/
+    if(~~jsonData["Alarm"]["Maintain"]){
+        $("#" + qzstr + "_img_posture_" + id).find("img:eq(0)").css("opacity", 1); 
+    } else {
+        $("#" + qzstr + "_img_posture_" + id).find("img:eq(0)").css("opacity", 0.1); 
+    }
+
+    /*温湿度，角度，振幅,电池电压,接收时间数据显示*/
+    $("#" + qzstr + "_hum_" + id).html(jsonData["State"]["Hum"]);  
+          
+    $("#" + qzstr + "_temp_" + id).html(jsonData["State"]["Temp"]); 
+    
+    $("#" + qzstr + "_degree_lr_" + id).html(jsonData["State"]["Degree_lr"]); 
+    
+    $("#" + qzstr + "_degree_fb_" + id).html(jsonData["State"]["Degree_fb"]); 
+        
+    $("#" + qzstr + "_shake_" + id).html(jsonData["State"]["Amplitude"]); 
+            
+    $("#" + qzstr + "_voltage_" + id).html(jsonData["State"]["Voltage"]); 
+
+    $("#" + qzstr + "_speed_" + id).html(jsonData["State"]["Speed"]); 
+
+    $("#" + qzstr + "_maintain_" + id).html(jsonData["State"]["MainTime"]); 
+
+    $("#" + qzstr + "_time_" + id).html(jsonData["Parameters"]["Recv_time"]);
+
+    /*故障状态初始化*/
+    window.parent.set_tree_point_status(id, 0);
+    $("#" + qzstr + "_title_" + id).css("color", "white");
+    $("#" + qzstr + "_alarm_" + id).html("");
+
+    /*故障判断*/
+    var alarm = QT_getAlarm_out(jsonData);
+    if(alarm.length > 0x00){ 
+        $("#" + qzstr + "_alarm_" + id).html(alarm);
+        $("#" + qzstr + "_title_" + id).css("color", "red");
+        window.parent.set_tree_point_status(id, 1);
+    }
+
+    /*超时检测*/
+    if(QT_dev_isTimeOut(jsonData)){ 
+      //  $("#" + qzstr + "_alarm_" + id).html(QT_getAlarm_out(jsonData));
+        $("#" + qzstr + "_alarm_" + id).css("line-height","46px");
+        $("#" + qzstr + "_title_" + id).css("color", "white");
+        $("#" + qzstr + "_alarm_" + id).html("离线");
+        window.parent.set_tree_point_status(id, 2);
+    }
+}
+
+/*
+    函数名称：QT_devUpdate_rone
+    函数功能：更新单台设备信息
+    传入参数：jsonData   单台设备信息
+    传入数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function QT_devUpdate_rone(jsonData){
+    var id = jsonData["Parameters"]["ID"];
+
+    /*获取设备实时box控件*/
+    var obj_box_real = $("#lrt_" + id);
+    var obj_box_alarm = $("#larm_" + id);
+
+    /*检测设备是否存在*/
+    if(obj_box_alarm.length <= 0x00) return;
+
+    /*检测是否离线或正常*/
+    if(QT_dev_isTimeOut(jsonData) || ~~jsonData["Alarm"]["Y_N"]==0){ 
+        obj_box_alarm.css("display", "none");
+        obj_box_real.css("display", "block");
+        QT_devUpdate_one(jsonData, "lrt");
+    }
+
+    else{
+        obj_box_real.css("display", "none");
+        obj_box_alarm.css("display", "block");
+        QT_devUpdate_one(jsonData, "larm");
+    } 
+}
+
+/*
+    函数名称：QT_realDataLoad
+    函数功能：实时数据加载
+    传入参数：realStr   从服务器返回的数据
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function QT_realDataLoad(realStr){ 
+    /*数据格式化*/
+    var jsonData;
+    try{ jsonData = eval('('+ realStr +')'); }catch(e){ alert(e); }
+
+    /*检测错误值*/
+    if(jsonData["error"] != 0x00) return;
+
+    /*获取实时数据*/
+    try{
+        qt_liftGroup_options.jsonReal = eval('('+ jsonData["data"] +')');
+        qt_liftGroup_options.dateTime = jsonData["datetime"];
+    }catch(e){ return; }
+
+
+    /*实时处理*/
+    for(var i=0x00; i<qt_liftGroup_options.jsonReal.length; i++){
+        var jsonData = qt_liftGroup_options.jsonReal[i];
+        QT_devUpdate_rone(qt_liftGroup_options.jsonReal[i]);
+
+    }
+
+    /*树形图展示*/
+    var realList = qt_liftGroup_options.jsonReal;
+    var id = 0;
+    for(var i=0x00; i<realList.length; i++){
+        id = realList[i]["Parameters"]["ID"];
+        window.parent.set_tree_point_status(id, 0);
+        if(~~realList[i]["Alarm"]["Y_N"]) window.parent.set_tree_point_status(id, 1);
+        if(QT_dev_isTimeOut(realList[i])) window.parent.set_tree_point_status(id, 2);
+    }
+}
+
+/*
+    函数名称：resp_real
+    函数功能：实时数据交互
+    传入参数：无
+    传出数据：无
+    注意事项：与QT端实时索取数据
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+function resp_real(){
+    try{
+        var getStr = window.parent.mywebkit.get_realData(); 
+        QT_realDataLoad(getStr);
+    }catch(e){ location.href = location.href; }
+    setTimeout(resp_real, 1000);
+}
+</script>

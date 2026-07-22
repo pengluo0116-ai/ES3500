@@ -1,0 +1,728 @@
+/*小组节点的设置*/
+var lift_group_TABLE = [];      //小组列表--存储所有小组的对象
+var lift_group_LIST = null;     //小组链表
+function lift_group(){
+    this.name = null;           //本小组名称
+    this.obj = null;            //本小组控件
+    this.id = null;             //本组节点ID
+    this.id_parent = 0;         //父组节点ID
+    this.id_childList = [];     //子节点列表ID
+    this.id_devIDList = [];     //设备列表ID
+
+    this.obj_parent = null;     //父节点对象
+    this.obj_childList = [];    //子节点列表对象
+    this.obj_devList = [];      //设备列表对象
+}
+
+/*
+    函数名称：create_liftGroupTable
+    函数功能：创建设备小组表
+    传入参数：[{"id":组ID, "pid":父组ID, "name":"组名"}
+    传出数据：无
+    注意事项：根据组信息列表生成组对象列表
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function create_liftGroupTable(_jsonList){
+    var num = _jsonList.length;                   //组数量
+    var item_tmp = null;                            //设备组节点对象
+
+    /*创建组列表*/
+    for(var i=0x00; i<num; i++){
+        item_tmp = new lift_group();
+        item_tmp.name = _jsonList[i]["name"];
+        item_tmp.id = _jsonList[i]["id"];
+        item_tmp.pid = _jsonList[i]["pid"];
+        lift_group_TABLE.push(item_tmp);
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：create_liftGroupList
+    函数功能：创建组链表
+    传入参数：无
+    传出数据：无
+    注意事项：执行该函数时，需确定已经执行了create_liftGroupTable函数
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function create_liftGroupList(){
+    var num = lift_group_TABLE.length;
+    lift_group_LIST = new lift_group();                                         //创建链表
+
+    for(var i=0x00; i<num; i++){
+        if(lift_group_TABLE[i].pid == 0){
+            lift_group_LIST.id_childList.push(lift_group_TABLE[i].id);          //子组ID--根组
+            lift_group_LIST.obj_childList.push(lift_group_TABLE[i]);            //子组对象--根组
+        }
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：join_liftGroupTable
+    函数功能：根据小组间的父子关系，将所有小组拼接到一起，形成家谱关系
+    传入参数：无
+    传出数据：保留 0
+    注意事项：执行该函数前，需确定已经执行了create_liftGroupTable函数
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function join_liftGroupTable(){
+    var num = lift_group_TABLE.length;
+    for(var i=0x00; i<num; i++){
+        for(var z=0x00; z<num; z++){
+            if(lift_group_TABLE[i].id == lift_group_TABLE[z].pid){
+                lift_group_TABLE[i].id_childList.push(lift_group_TABLE[z].id);
+                lift_group_TABLE[i].obj_childList.push(lift_group_TABLE[z]);
+                lift_group_TABLE[z].obj_parent = lift_group_TABLE[i];
+            }
+        }
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：get_liftGroupItem_byid
+    函数功能：根据组的ID，获取组对象
+    传入参数：id-->数值
+    传出数据：正确返回组节点对象，失败或者错误返回null
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function get_liftGroupItem_byid(id){
+    var num = lift_group_TABLE.length;
+    for(var i=0x00; i<num; i++){
+        if(lift_group_TABLE[i].id == id) return lift_group_TABLE[i];
+    }
+
+    return null;
+}
+
+/*设备节点类*/
+var dev_info_TABLE = [];
+function dev_info(){
+    this.id = null;             //设备ID
+    this.name = null;           //设备名称
+    this.url = null;            //URL
+    this.x = 0;                 //x坐标
+    this.y = 0;                 //y坐标
+    this.madein = null;         //生产厂商
+    this.property = null;       //物业公司
+    this.mainter = null;        //维保公司
+    this.mainter_tel = null;    //维保电话
+    this.mainter_time = null;   //维保时间
+    this.mainter_period = null; //维保周期
+    this.address = null;        //地理位置
+    this.note = null;           //备注信息
+
+    this.obj = null;            //设备控件
+    this.id_parentGroup = null; //该设备所在小组的ID
+    this.obj_parentGroup = null;//该设备所在小组的对象
+}
+
+/*
+    函数名称：create_devInfoTable
+    函数功能：创建设备节点列表
+    传入参数：_jsonList [{"id":"设备ID", "gid":组ID, "name":"设备名称"}]
+    传出数据：保留 0
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function create_devInfoTable(_jsonList){
+    var num = _jsonList.length;
+    var item_tmp = null;
+    
+    for(var i=0x00; i<num; i++){
+        item_tmp                = new dev_info();
+        item_tmp.id             = _jsonList[i].id;                  //设备ID
+        item_tmp.name           = _jsonList[i].name;                //设备名称
+        item_tmp.url            = _jsonList[i].url;                 //url
+        item_tmp.x              = _jsonList[i].x;                   //X坐标
+        item_tmp.y              = _jsonList[i].y;                   //Y坐标
+        item_tmp.madein         = _jsonList[i].madein;              //生产厂商
+        item_tmp.property       = _jsonList[i].property;            //物业公司
+        item_tmp.mainter        = _jsonList[i].mainter;             //维保公司
+        item_tmp.mainter_tel    = _jsonList[i].mainter_tel;         //维保电话
+        item_tmp.mainter_period = _jsonList[i].mainter_period;      //维保周期
+        item_tmp.address        = _jsonList[i].address;             //地理位置
+        item_tmp.note           = _jsonList[i].note;                //备注信息
+        item_tmp.id_parentGroup = _jsonList[i].gid;                 //设备组ID
+        dev_info_TABLE.push(item_tmp);                  
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：join_devInfoList_to_liftGroupTable
+    函数功能：将设备跟设备组管理到一起，生成家谱图
+    传入参数：无
+    传出数据：保留 0
+    注意事项：执行该函数前，需确认create_liftGroupTable，create_devInfoTable函数已经执行
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function join_devInfoList_to_liftGroupTable(){
+    var dev_num = dev_info_TABLE.length;
+    var group_num = lift_group_TABLE.length;
+    for(var i=0x00; i<group_num; i++){
+        for(var z=0x00; z<dev_num; z++){
+            if(dev_info_TABLE[z].id_parentGroup == lift_group_TABLE[i].id){
+                dev_info_TABLE[z].obj_parentGroup = lift_group_TABLE[i];            //设备添加组对象
+                lift_group_TABLE[i].id_devIDList.push(dev_info_TABLE[z].id);        //组添加设备ID
+                lift_group_TABLE[i].obj_devList.push(dev_info_TABLE[z]);            //组添加设备对象
+            }
+        }
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：get_devInfoItem_byid
+    函数功能：根据设备id获取设备节点对象
+    传入参数：id
+    传出数据：正确返回设备节点，失败或错误返回null
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-050-16
+*/
+function get_devInfoItem_btid(id){
+    var num = dev_info_TABLE.length;
+    for(var i=0x00; i<num; i++){
+        if(dev_info_TABLE[i].id == id) return dev_info_TABLE[i];
+    }
+
+    return null;
+}
+
+/*
+    函数名称：get_devInfoItem_all
+    函数功能：获取所有设备列表对象
+    传入参数：无
+    传出数据：列表
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-25
+*/
+function get_devInfoItem_all(){
+    return dev_info_TABLE;
+}
+
+/*
+    函数名称：tree_init
+    函数功能：树形图数据初始化
+    传入参数：
+                jsonList_group      格式参见：create_liftGroupTable
+                jsonList_devInfo    格式参见：create_devInfoTable
+    传出数据：保留 0
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+function tree_init(jsonList_group, jsonList_devInfo){
+    /*创建设备小组表*/
+    try{ create_liftGroupTable(jsonList_group); }catch(e){ return -0x01; }
+
+    /*创建组链表*/
+    try{ create_liftGroupList(); }catch(e){ return -0x02; }
+
+    /*小组间形成族谱*/
+    try{ join_liftGroupTable(); }catch(e){ return -0x03; }
+
+    /*创建设备列表*/
+    try{ create_devInfoTable(jsonList_devInfo); }catch(e){ return -0x04; }
+
+    /*设备节点附加至族谱*/
+    try{ join_devInfoList_to_liftGroupTable(); }catch(e){ return -0x05; }
+
+    return 0x00;
+}
+
+/*
+    函数名称：treeItem_ctreat
+    函数功能：创建节点及设备
+    传入参数：
+                obj_lift_group  组节点对象--类lift_group
+    传出数据：保留 0
+    注意事项：执行该函数前，确定tree_init已经执行
+    编写人员：王凤龙
+    编写时间：2017-05-16
+*/
+// function treeItem_creat(obj_lift_group){
+//     var num = 0;
+//     var objstr = "";
+
+//     objstr += '<li id="bli_'+ obj_lift_group.id +'" >';
+//     objstr += '<span class="folder" id="list_'+ obj_lift_group.id +'">'+ obj_lift_group.name +'</span>';
+//     objstr += '<ul id="b_'+ obj_lift_group.id +'">';
+    
+//     /*添加设备*/
+//     num = obj_lift_group.obj_devList.length; 
+//     for(var i=0x00; i<num; i++){
+//         objstr += '<li><span class="file" id="dev_'+ obj_lift_group.obj_devList[i].id +'"><a href="javascript:;" onclick="cont_device_udpInt(\''+ obj_lift_group.obj_devList[i].id +'\')">'+ obj_lift_group.obj_devList[i].name +'</a></span></li>';
+//     }
+    
+//     /*添加子组*/
+//     num = obj_lift_group.obj_childList.length;
+//     for(var i=0x00; i<num; i++){
+//         objstr += treeItem_creat(obj_lift_group.obj_childList[i]);
+//     }
+
+//     objstr += '</ul>';
+//     objstr += '</li>';
+//     return objstr;
+// }
+
+function treeItem_creat(obj_lift_group){
+    var num = 0;
+    var objstr = "";
+
+    objstr += '<li id="bli_'+ obj_lift_group.id +'" >';
+    objstr += '<span class="folder" id="list_'+ obj_lift_group.id +'">'+ obj_lift_group.name +'</span>';
+    objstr += '<ul id="b_'+ obj_lift_group.id +'">';
+    
+    /*添加设备*/
+    num = obj_lift_group.obj_devList.length; 
+    for(var i=0x00; i<num; i++){
+        objstr += '<li><span class="file" id="dev_'+ obj_lift_group.obj_devList[i].id +'"><a href="javascript:;" onclick="cont_device_udpInt(\''+ obj_lift_group.obj_devList[i].id +'\')">'+ obj_lift_group.obj_devList[i].name +'</a></span></li>';
+    }
+    
+    /*添加子组*/
+    num = obj_lift_group.obj_childList.length;
+    for(var i=0x00; i<num; i++){
+        objstr += treeItem_creat(obj_lift_group.obj_childList[i]);
+    }
+
+    objstr += '</ul>';
+    objstr += '</li>';
+    return objstr;
+}
+
+/*
+    函数名称：treeItem_createAll
+    函数功能：创建完整的节点及设备
+    传入参数：无
+    传出数据：保留 0
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+function treeItem_createAll(){
+    var num = lift_group_LIST.obj_childList.length;
+    var objStr = "";
+    for(var i=0x00; i<num; i++){
+        objStr += treeItem_creat(lift_group_LIST.obj_childList[i]);
+    }
+    $("#browser").empty();
+    $("#browser").html(objStr);
+    $("#browser").treeview({});
+    set_floder_rcont();
+    set_floder_rcontP();
+    set_floder_drcont();
+}
+
+/*
+    函数名称：add_group_p
+    函数功能：添加小组--根组
+    传入参数：
+                jsonGrop {"id":4, "pid":0, "name":"菜单13"}
+    传出数据：无
+    注意事项：内部函数
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function add_group_p(jsonGrop){
+    /*添加到DOM*/
+    var tmp = "";
+    tmp += '<li id="bli_'+ jsonGrop.id +'">';
+    tmp += '<span class="folder" id="list_'+ jsonGrop.id +'">'+ jsonGrop.name +'</span>';
+    tmp += '<ul id="b_'+ jsonGrop.id +'">';
+    tmp += '</ul>';
+    tmp += '</li>';
+
+    var newSublist = $(tmp).appendTo($("#browser"));
+    $("#browser").treeview({add: newSublist});
+
+    /*添加到列表中*/
+    var item = new lift_group();
+    item.name = jsonGrop["name"];
+    item.id = jsonGrop["id"];
+    item.pid = jsonGrop["pid"];
+    lift_group_TABLE.push(item);
+
+    /*添加到族谱图中*/
+    lift_group_LIST.obj_childList.push(item);
+    lift_group_LIST.id_childList.push(item.id);
+}
+
+/*
+    函数名称：add_group_f
+    函数功能：添加小组--子组
+    传入参数：
+                jsonGrop {"id":4, "pid":1, "name":"菜单13"}
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function add_group_f(jsonGrop){
+    /*添加到DOM*/
+    var tmp = "";
+    tmp += '<li id="bli_'+ jsonGrop.id +'">';
+    tmp += '<span class="folder" id="list_'+ jsonGrop.id +'">'+ jsonGrop.name +'</span>';
+    tmp += '<ul id="b_'+ jsonGrop.id +'">';
+    tmp += '</ul>';
+    tmp += '</li>';
+
+    var newSublist = $(tmp).appendTo($("#b_" + jsonGroup.pid));
+    $("#b_" + jsonGroup.pid).treeview({add: newSublist});
+
+    /*添加到列表中*/
+    var item = new lift_group();
+    item.name = jsonGrop["name"];
+    item.id = jsonGrop["id"];
+    item.pid = jsonGrop["pid"];
+    lift_group_TABLE.push(item);
+
+    /*添加到族谱图中*/
+    for(var i=0x00; i<lift_group_TABLE.length; i++){
+        if(item["pid"] != lift_group_TABLE[i].id) continue;
+        lift_group_TABLE[i].id_childList.push(item.id);
+        lift_group_TABLE[i].obj_childList.push(item);
+        item.obj_parent = lift_group_TABLE[i];
+        break;
+    }
+}
+
+/*
+    函数名称：add_group
+    函数功能：添加小组
+    传入参数：
+                jsonGroup {"id":4, "pid":1, "name":"菜单13"}
+    传出数据：
+                 0  运行成功
+                -1  参数校验有误
+                -2  重复添加小组--小组ID重复
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function add_group(jsonGrop){
+    /*数据校验*/
+    if(!("id" in jsonGrop) || !("pid" in jsonGrop) || !("name" in jsonGrop)) return -0x01;
+
+    /*检测是否重复添加设备*/
+    var point = 0x00;
+    for(point=0x00; point<lift_group_TABLE.length; point++){
+        if(jsonGrop["id"] == lift_group_TABLE[point]["id"]) break;
+    }
+    if(point < lift_group_TABLE.length) return -0x02;       //小组ID重复
+
+    /*添加小组*/
+    if(jsonGrop["pid"] == 0x00) add_group_p(jsonGrop);
+    else add_group_f(jsonGrop);
+
+    return 0x00;
+}
+
+/*
+    函数名称：del_group
+    函数功能：删除小组
+    传入参数：id 小组id
+    传出数据：
+                 0  运行成功
+                -1  参数校验有误--小组ID不存在
+                -2  删除失败--该组含有子组
+                -3  删除失败--改组含有设备
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function del_group(id){
+    /*参数校验*/
+    var point = 0x00;
+    for(var point=0x00; point<lift_group_TABLE.length; point++){
+        if(lift_group_TABLE[point].id == id) break;
+    }
+    if(point >= lift_group_TABLE.length) return -0x01;
+
+    /*判断该小组是否含有子组及设备*/
+    if(lift_group_TABLE[point].id_childList.length > 0x00) return -0x02;
+    if(lift_group_TABLE[point].id_devIDList.length > 0x00) return -0x03;
+
+    /*DOM删除小组*/
+    $("#bli_"+ id).remove();
+
+    /*族谱中删除小组*/
+    if(lift_group_TABLE[point].obj_parent){
+        for(var i=0x00; i<lift_group_TABLE[point].obj_parent.obj_childList.length; i++){
+            if(lift_group_TABLE[point].obj_parent.obj_childList[i] != lift_group_TABLE[point]) continue;
+            lift_group_TABLE[point].obj_parent.obj_childList.splice(i, 1);
+            break;
+        }
+
+        for(var i=0x00; i<lift_group_TABLE[point].obj_parent.id_childList.length; i++){
+            if(lift_group_TABLE[point].obj_parent.id_childList[i] != id) continue;
+            lift_group_TABLE[point].obj_parent.id_childList.splice(i, 1);
+            break;
+        }
+    }
+
+    /*小组列表中删除小组*/
+    lift_group_TABLE.splice(point, 1);
+    return 0x00;
+}
+
+/*
+    函数名称：update_group
+    函数功能：修改小组属性
+    传入参数：jsonGroup 
+    传出数据：无
+    注意事项：仅修改设备名称
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function update_group(jsonGroup){
+    /*DOM修改*/
+    try{ $("#list_" + jsonGroup.id).html(jsonGroup.name); }catch(e){}
+
+    /*对象修改*/
+    var obj_group = get_group_classOBJ(jsonGroup.id);
+    if(!obj_group) return;
+    obj_group.name = jsonGroup.name;
+}
+
+/*
+    函数名称：add_dev
+    函数功能：添加设备
+    传入参数：jsonDev    {"id":"5002", "gid":2, "name":"11设备"},
+    传出数据：
+                 0  运行成功
+                -1  参数校验有误
+                -2  设备重复添加--ID重复
+                -3  添加到族谱失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function add_dev(jsonDev){
+    /*参数校验*/
+    var point = 0x00;
+    if(!("id" in jsonDev) || !("gid" in jsonDev) || !("name" in jsonDev)) return -0x01;
+    for(point=0x00; point<dev_info_TABLE.length; point++){
+        if(jsonDev.id == dev_info_TABLE[point].id) break;
+    }
+    if(point < dev_info_TABLE.length) return -0x02;
+
+    /*DOM添加设备*/
+    var tmp = "";
+     tmp += '<li><span class="file" id="dev_'+ jsonDev.id +'"><a href="javascript:;" onclick="cont_device_udpInt(\''+ jsonDev.id +'\')">'+ jsonDev.name +'</a></span></li>';
+    var newSubline = $(tmp).appendTo($("#b_" + jsonDev.gid));
+    $("#b_" + jsonDev.gid).treeview({add: newSubline});
+
+    /*设备列表添加设备*/
+    var item            = new dev_info();
+    item.id             = jsonDev.id;
+    item.name           = jsonDev.name;
+    item.url            = jsonDev.url;
+    item.x              = jsonDev.x;
+    item.y              = jsonDev.y;
+    item.madein         = jsonDev.madein;
+    item.property       = jsonDev.property;
+    item.mainter        = jsonDev.mainter;
+    item.mainter_tel    = jsonDev.mainter_tel;
+    item.mainter_time   = jsonDev.mainter_time;
+    item.mainter_period = jsonDev.mainter_period;
+    item.address        = jsonDev.address;
+    item.note           = jsonDev.note;
+
+    item.id_parentGroup = jsonDev.gid;
+    dev_info_TABLE.push(item);
+
+    /*族谱图添加设备*/
+    var obj_grop = get_group_classOBJ(item.id_parentGroup);
+    if(!obj_grop) return -0x03;
+    item.obj_parentGroup = obj_grop;
+
+    obj_grop.id_childList.push(item.id);
+    obj_grop.obj_childList.push(item);
+    return 0x00;
+}
+
+/*
+    函数名称：del_dev
+    函数功能：删除设备
+    传入参数：id 设备ID
+    传出数据：0 运行成功 -1 参数校验有误
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function del_dev(id){
+    var obj_dev = get_dev_classOBJ(id);       //获取设备对象
+    if(!obj_dev) return -0x01;
+
+    /*DOM删除*/
+    try{ $("#dev_" + id).parent().remove(); } catch(e){}
+
+    /*族谱删除*/
+    for(var i=0x00; i<obj_dev.obj_parentGroup.id_devIDList.length; i++){
+        if(id != obj_dev.obj_parentGroup.id_devIDList[i]) continue;
+        obj_dev.obj_parentGroup.id_devIDList.splice(i, 1);
+        break;
+    }
+
+    for(var i=0x00; i<obj_dev.obj_parentGroup.obj_devList.length; i++){
+        if(obj_dev != obj_dev.obj_parentGroup.obj_devList[i]) continue;
+        obj_dev.obj_parentGroup.obj_devList.splice(i, 1);
+        break;
+    }
+    
+    /*列表删除*/
+    for(var i=0x00; i<dev_info_TABLE.length; i++){
+        if(id != dev_info_TABLE[i].id) continue;
+        dev_info_TABLE.splice(i, 1);
+        break;
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：update_dev
+    函数功能：修改设备属性
+    传入参数：jsonDev    {"id":"5002", "gid":2, "name":"11设备"}
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function update_dev(jsonDev){
+    /*DOM修改*/
+    try{ $("#dev_" + jsonDev.id).html(
+        "<a href='javascript:;' onclick='cont_device_udpInt(\""+ jsonDev.id +"\")'>"+ jsonDev.name +"</a>"
+    ); } catch(e){}
+
+    /*对象修改*/
+    var obj_dev = get_dev_classOBJ(jsonDev.id);
+    if(!obj_dev) return;
+    obj_dev.name         = jsonDev.name;
+    obj_dev.url          = jsonDev.url;
+    obj_dev.x            = jsonDev.x;
+    obj_dev.y            = jsonDev.y;
+    obj_dev.madein       = jsonDev.madein;
+    obj_dev.property     = jsonDev.property;
+    obj_dev.mainter      = jsonDev.mainter;
+    obj_dev.mainter_tel  = jsonDev.mainter_tel;
+    obj_dev.mainter_time = jsonDev.mainter_time;
+    obj_dev.mainter_period = jsonDev.mainter_period;
+    obj_dev.address      = jsonDev.address;
+    obj_dev.note         = jsonDev.note;
+}
+
+/*
+    函数名称：get_group_classOBJ
+    函数功能：根据组ID获取组对象
+    传入参数：id 组ID
+    传出数据：null 获取失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function get_group_classOBJ(id){
+    for(var i=0x00; i<lift_group_TABLE.length; i++){
+        if(id == lift_group_TABLE[i].id) return lift_group_TABLE[i];
+    }
+
+    return null;
+}
+
+/*
+    函数名称：get_dev_classOBJ
+    函数功能：根据设备ID，获取设备对象
+    传入参数：id 设备ID
+    传出数据：null 返回失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function get_dev_classOBJ(id){
+    for(var i=0x00; i<dev_info_TABLE.length; i++){
+        if(id == dev_info_TABLE[i].id) return dev_info_TABLE[i];
+    }
+    return null;
+}
+
+/*
+    函数名称：get_group_classP
+    函数功能：获取根目录对象列表
+    传入参数：无
+    传出数据：class数组
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function get_group_classP(){
+    return lift_group_LIST.obj_childList;
+}
+
+/*
+    函数名称：get_group_class
+    函数功能：获取子目录对象列表
+    传入参数：无
+    传出数据：class数组
+    注意事项：通过直接遍历列表，这样速度较快
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+function get_group_class(){
+    var class_list = [];
+    var num = lift_group_TABLE.length;
+    for(var i=0x00; i<num; i++){
+        if(lift_group_TABLE[i].pid == 0) continue;
+        class_list.push(lift_group_TABLE[i]);
+    }
+    return class_list;
+}
+
+/**************测试程序******************/
+
+var test_group = [
+    {"id":1, "pid":0, "name":"顶级菜单1"},
+    {"id":2, "pid":1, "name":"菜单11"},
+    {"id":3, "pid":1, "name":"菜单12"},
+    {"id":4, "pid":1, "name":"菜单13"}
+];
+
+var test_devlist = [
+    {"id":"5001", "gid":1, "name":"顶级菜单1设备"},
+    {"id":"5002", "gid":2, "name":"11设备"},
+    {"id":"5003", "gid":2, "name":"11设备"},
+    {"id":"5004", "gid":2, "name":"11设备"},
+    {"id":"5005", "gid":3, "name":"12设备"},
+    {"id":"5006", "gid":4, "name":"13设备"},
+    {"id":"5007", "gid":4, "name":"13设备"},
+    {"id":"5008", "gid":4, "name":"13设备"},
+    {"id":"5009", "gid":4, "name":"13设备"},
+    {"id":"5010", "gid":4, "name":"13设备"},
+    {"id":"5011", "gid":4, "name":"13设备"},
+    {"id":"5012", "gid":4, "name":"13设备"},
+    {"id":"5013", "gid":2, "name":"11设备"}
+];
+
+function tree_test(){
+    tree_init(test_group, test_devlist);
+
+    var objstr = treeItem_creat(lift_group_LIST.obj_childList[0]);
+    $("#browser").empty();
+    $("#browser").html(objstr);
+    $("#browser").treeview({});
+}

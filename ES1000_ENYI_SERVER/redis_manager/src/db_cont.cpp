@@ -1,0 +1,380 @@
+#include "db_cont.h"
+using namespace std;
+#define DEBUG 1
+
+/*
+    函数名称：get_group_callback
+    函数功能：获取小组属性信息回调函数
+    传入参数：
+                data 调用该函数的父函数传给该函数的值
+                argc 一条查询记录中，列数
+                argv 查询到结果以字符串列表的形式存到改变量中
+                azColName 一条查询结果中，以字符串列表的形式，存储所有的列的名称
+    传出数据：保留 0
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+static int get_group_callback(void *data, int argc, char **argv, char **azColName){
+    Json::Value *jsonList = (Json::Value *)data;
+    Json::Value jsonTmp;
+
+    jsonTmp["id"] = atoi(argv[0]);
+    jsonTmp["pid"] = atoi(argv[1]);
+    jsonTmp["name"] = argv[2] ? argv[2] : "";
+    jsonTmp["note"] = argv[3] ? argv[3] : "";
+
+    jsonList->append(jsonTmp);
+    return 0x00;
+}
+
+/*
+    函数名称：get_group_byID
+    函数功能：根据组ID，获取组信息
+    传入参数：Json::Value &jsonList 获取到的组信息存储到该引用指向的存储空间
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：内部函数
+    编写人员：王凤龙
+    编写时间：2017-05-22
+*/
+int get_group_byID(unsigned int id,Json::Value &jsonList){
+    ostringstream sql; sql.str("");
+    sql << "SELECT id, pid, name, note FROM group_info WHERE id = " << id << ";";
+
+    jsonList.clear();
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), get_group_callback, (void *)&jsonList)) return -0x01;
+    return 0x00;
+}
+
+/*
+    函数名称：get_group_byPID
+    函数功能：根据父组ID，获取组信息
+    传入参数：Json::Value &jsonList 获取到的组信息存储到该引用指向的存储空间
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：内部函数
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+int get_group_byPID(int id, Json::Value &jsonList){
+    ostringstream sql; sql.str("");
+    sql << "SELECT id, pid, name, note FROM group_info WHERE pid = " << id << ";";
+
+    jsonList.clear();
+    if(id == 0x00) return 0x00;         //根组
+
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), get_group_callback, (void *)&jsonList)) return -0x01;
+    return 0x00;
+}
+
+/*
+    函数名称：get_group_All
+    函数功能：获取所有的小组信息
+    传入参数：Json::Value &jsonList  获取到的组信息存储到该引用指向的存储空间
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+int get_group_All(Json::Value &jsonList){
+    ostringstream sql; sql.str("");
+    sql << "SELECT id, pid, name, note FROM group_info;";
+
+    jsonList.clear();
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), get_group_callback, (void *)&jsonList)) return -0x01;
+    return 0x00;
+}
+
+/*
+    函数名称：set_group_del
+    函数功能：删除小组--根据组ID
+    传入参数：unsigned int id
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+int set_group_del(unsigned int id){
+    ostringstream sql;
+    sql << "DELETE FROM group_info WHERE id = " << id << ";";
+
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), NULL, NULL)) return -0x01;
+
+    return 0x00;
+}
+
+/*
+    函数名称：get_device_callback_1
+    函数功能：获取设备信息回调函数
+    传入参数：
+                data 调用该函数的父函数传给该函数的值
+                argc 一条查询记录中，列数
+                argv 查询到结果以字符串列表的形式存到改变量中
+                azColName 一条查询结果中，以字符串列表的形式，存储所有的列的名称
+    传出数据：保留 0
+    注意事项：配置客户端
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+static int get_device_callback_1(void *data, int argc, char **argv, char **azColName){
+    Json::Value *jsonList = (Json::Value *)data;
+    Json::Value jsonTmp;
+
+    jsonTmp["id"]               = argv[0];
+    jsonTmp["gid"]              = atoi(argv[1]);
+    jsonTmp["name"]             = argv[2];
+    jsonTmp["url"]              = argv[3];
+    jsonTmp["x"]                = atoi(argv[4]);
+    jsonTmp["y"]                = atoi(argv[5]);
+    jsonTmp["note"]             = argv[6];
+    jsonTmp["madein"]           = argv[7];
+    jsonTmp["property"]         = argv[8];
+    jsonTmp["mainter"]          = argv[9];
+    jsonTmp["mainter_tel"]      = argv[10];
+    jsonTmp["mainter_time"]     = argv[11];
+    jsonTmp["mainter_period"]   = atoi(argv[12]);
+    jsonTmp["address"]          = argv[13];
+
+    jsonList->append(jsonTmp);
+    return 0x00;
+}
+
+/*
+    函数名称：get_device_callback_2
+    函数功能：获取设备信息回调函数
+    传入参数：
+                data 调用该函数的父函数传给该函数的值
+                argc 一条查询记录中，列数
+                argv 查询到结果以字符串列表的形式存到改变量中
+                azColName 一条查询结果中，以字符串列表的形式，存储所有的列的名称
+    传出数据：保留 0
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+static int get_device_callback_2(void *data, int argc, char **argv, char **azColName){
+    Json::Value *jsonList = (Json::Value *)data;
+    Json::Value jsonTmp;
+
+    jsonTmp["id"]               = argv[0];
+    jsonTmp["gid"]              = atoi(argv[1]);
+    jsonTmp["dev_name"]         = argv[2];
+    jsonTmp["url"]              = argv[3];
+    jsonTmp["x"]                = atoi(argv[4]);
+    jsonTmp["y"]                = atoi(argv[5]);
+    jsonTmp["note"]             = argv[6];
+    jsonTmp["madein"]           = argv[7];
+    jsonTmp["property"]         = argv[8];
+    jsonTmp["mainter"]          = argv[9];
+    jsonTmp["mainter_tel"]      = argv[10];
+    jsonTmp["mainter_time"]     = argv[11];
+    jsonTmp["mainter_period"]   = atoi(argv[12]);
+    jsonTmp["address"]          = argv[13];
+
+    jsonList->append(jsonTmp);
+    return 0x00;
+}
+
+/*
+    函数名称：get_device_all
+    函数功能：获取所有设备信息
+    传入参数：
+                Json::Value &josnList    获取到的数据存储到该引用指向的存储空间
+                int callback(void *data, int argc, char **argv, char **azColName)
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+int get_device_all(Json::Value &jsonList, int (*callback)(void *, int, char **, char **)){
+    ostringstream sql;
+    sql << "SELECT id, gid, dev_name, url, x, y, note, madein, property, mainter, mainter_tel,mainter_time,mainter_period,address FROM dev_info;";
+
+    jsonList.clear();
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), callback, (void *)&jsonList)){ return -0x01; }
+
+    return 0x00;
+}
+
+/*
+    函数名称：get_device_all
+    函数功能：获取所有设备信息
+    传入参数：Json::Value &jsonList  获取到的数据存储到该引用指向的存储空间
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+ int get_device_all(Json::Value &jsonList){
+     return get_device_all(jsonList, get_device_callback_2);
+ }
+
+/*
+    函数名称：get_device_byGID
+    函数功能：获取指定组ID下面的所有设备
+    传入参数：
+                unsigned int gid            组ID
+                Json::Value &jsonList       获取到的数据存储到该引用指向的存储空间
+                int callback(void *data, int argc, char **argv, char **azColName)
+    传出数据：0  运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+int get_device_byGID(unsigned int gid, Json::Value &jsonList, int (*callback)(void *, int, char **, char **)){
+    ostringstream sql;
+    sql << "SELECT id, gid, dev_name, url, x, y, note, madein, property, mainter, mainter_tel,mainter_time,mainter_period, address FROM dev_info WHERE gid = " << gid << ";";
+
+    jsonList.clear();
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), callback, (void *)&jsonList)){ return -0x01; }
+
+    return 0x00;
+}
+
+/*
+    函数名称：get_device_byGID
+    函数功能：获取指定组下面的所有设备
+    传入参数：
+                unsigned int gid            组ID
+                Json::Value &jsonList       获取到的设备数据存储到该引用指向的存储空间
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int get_device_byGID(unsigned int gid, Json::Value &jsonList){
+    return get_device_byGID(gid, jsonList, get_device_callback_2);
+}
+
+/*
+    函数名称：set_device_add
+    函数功能：添加设备
+    传入参数：Json::Value &jsonData
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-24
+*/
+int set_device_add(Json::Value &jsonData){
+    ostringstream sql;
+
+    sql << "INSERT INTO dev_info(id, gid, dev_name, url, x, y, madein, property, mainter, mainter_tel, address, note, mainter_time, mainter_period) "
+        << "VALUES(\"" << jsonData["id"].asString() << "\", " << jsonData["gid"].asInt() <<", "
+        <<"\""<< jsonData["name"].asString() <<"\", \""<< jsonData["url"].asString() <<"\", "<< jsonData["x"].asInt() <<", "<< jsonData["y"].asInt() 
+        <<", \""<< jsonData["madein"].asString() <<"\", \""<< jsonData["property"].asString() <<"\", \""<< jsonData["mainter"].asString() <<"\", \""<< jsonData["mainer_tel"].asString() 
+        <<"\", \""<< jsonData["address"].asString() <<"\", \""<< jsonData["note"].asString() << "\", \"" << jsonData["mainter_time"].asString() << "\", \"" << jsonData["mainter_period"].asInt() << "\")";
+
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), NULL, NULL)) return -0x01;
+    return 0x00;
+}
+
+/*
+    函数名称：set_device_del
+    函数功能：删除设备
+    传入参数：Json::Value &jsonData
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-25
+*/
+int set_device_del(Json::Value &jsonData){
+    ostringstream sql;
+    sql << "DELETE FROM dev_info WHERE id = \""<< jsonData["id"].asString() <<"\";";
+
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), NULL, NULL)) return -0x01;
+    return 0x00;
+}
+
+/*
+    函数名称：set_device_delByGroupID
+    函数功能：删除指定组ID下的设备
+    传入参数：unsigned int gid
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-02
+*/
+int set_device_delByGroupID(unsigned int gid){
+    ostringstream sql;
+    sql << "DELETE FROM dev_info WHERE gid = "<< gid <<";";
+
+    dbcontrl db(DBPATH);
+    if(db.exec(sql.str().c_str(), NULL, NULL)) return -0x01;
+    return 0x00;
+}
+
+/*
+    函数名称：group_getNameByID
+    函数功能：获取组名称
+    传入参数：   int id                         组ID
+                Json::Value &jsonList_group    组数据库列表信息
+    传出数据：组名称
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+static string group_getNameByID(int id, Json::Value &jsonList_group){
+    for(int point=0x00; point<jsonList_group.size(); point++){
+        if(id == jsonList_group[point]["id"].asInt()) return jsonList_group[point]["name"].asString();
+    }
+    return "";
+}
+
+/*
+    函数名称：group_getJsonByID
+    函数功能：根据组ID获取指定组的json
+    传入参数：
+                int id                          组ID
+                Json::Value &jsonList_group     组数据库列表信息
+                Json::Value &jsonData           获取到的数据存储到该指针指向的存储空间
+    传出数据：
+                0   未获取到
+                1   获取成功
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+static int group_getJsonByID(int id, Json::Value &jsonList_group, Json::Value &jsonData){
+    for(int point=0x00; point<jsonList_group.size(); point++){
+        if(id != jsonList_group[point]["id"].asInt()) continue;
+        jsonData = jsonList_group[point]; return 0x01;
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：dev_create_info
+    函数功能：创建完整的设备属性信息--用于redis中保存
+    传入参数：
+                Json::Value &jsonList_dev   设备数据库列表信息
+                Json::Value &jsonList_group 组数据库列表信息
+    传出数据：保留 0
+    注意事项：jonsList_dev中的数据会添加部分键值
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+int dev_create_info(Json::Value &jsonList_dev, Json::Value &jsonList_group){
+    Json::Value jsonG;
+    for(unsigned int point=0; point<jsonList_dev.size(); point++){
+        if(group_getJsonByID(jsonList_dev[point]["gid"].asInt(), jsonList_group, jsonG)){
+            jsonList_dev[point]["gname"] = jsonG["name"].asString();
+            jsonList_dev[point]["pgid"] = jsonG["pid"].asInt();
+            if(jsonG["pid"].asInt() == 0x00) jsonList_dev[point]["pgname"] = "";
+            else jsonList_dev[point]["pgname"] = group_getNameByID(jsonG["pid"].asInt(), jsonList_group);
+        }
+        else{
+            jsonList_dev[point]["gname"] = "";
+            jsonList_dev[point]["pgid"] = 0;
+            jsonList_dev[point]["pgname"] = "";
+        }
+    }
+    return 0x00;
+}

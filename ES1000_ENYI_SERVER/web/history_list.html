@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link href="css/css.css" rel="stylesheet" type="text/css" />
+        <script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+        <script src="js/JS.js" type="text/javascript"></script>
+        <script src="js/js_display.js" type="text/javascript"></script>
+        <!--[if lt IE 9]>
+            <script src="js/json/json2.js" type="text/javascript"></script>
+        <![endif]-->
+        <script src="js/layer/layer.js" type="text/javascript"></script>
+        <script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+        <style type="text/css">
+            .msg_tr { height:auto; padding-bottom: 20px;}
+        </style>
+        <title>历史故障</title>
+    </head>
+    <body>
+        <div class="bd">
+	        <div class="logo_tr">
+		        电梯运行实时监控系统
+	        </div>
+	        <div class="set_tr">
+		        <ul>
+			        <li><a href="index.html">主机配置</a></li>
+                    <li class="set_tr_li"><a href="history_list.html">历史故障</a></li>
+			        <li><a href="device.html">设备管理</a></li>
+                    <li><a href="msgsend.html">报警推送人员</a></li>
+                    <li><a href="post.html">推送设定</a></li>
+                    <li><a href="updateuser.html">修改密码</a></li>
+                    <li><a href="alipost.html">阿里上报</a></li>
+                    <li><a href="othersetting.html">时间设定</a></li>
+		        </ul>
+	        </div>
+
+            <!--页面开始-->
+            <div id="page1" class="msg_tr" style="overflow:hidden;">
+                <table class="almtb_tab" border="0" cellpadding="0" cellspacing="0" style="margin-top:10px; border-bottom-width: 0px">
+                    <tr class="almtb_tr_title">
+                        <td class="almtb_tab_td1">历史故障列表</td>
+                        <td class="almtb_tab_td2">查看</td>
+                        <td class="almtb_tab_td3">下载</td>
+                    </tr>
+                </table>
+                <table class="almtb_tab" id="alarm_tab"  border="0" cellpadding="0" cellspacing="0">
+                </table>
+            </div>
+            <!--页面结束-->
+        </div>
+    </body>
+</html>
+
+<script type="text/javascript">
+    $(document).ready(function(){
+        cmd_get_ALLAlarmData();         //获取历史故障列表
+    });
+    
+    /*
+        函数名称：cmd_get_ALLAlarmData
+        函数功能：获取所有设备的某个月份的报警信息
+        传入参数：
+        传出数据：无 日期 201610
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2016-10-21
+    */
+    function cmd_get_ALLAlarmData(){
+        var postJson = {};
+        postJson.display = 1;
+        
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/history_list.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    case 401: layer.msg(temp.data); return;
+                    default: layer.alert(temp.data); return;
+                }
+
+                historyTable_show(temp);
+            },
+            "html");
+    }
+    
+    /*
+        函数名称：historyTable_show
+        函数功能：显示获取到的故障历史列表
+        传入参数：jsonData
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-02-24
+    */
+    function historyTable_show(jsonData){
+        if(jsonData.data==null || jsonData.data.length<=0x00) return;
+        jsonData = jsonData.data;
+
+        var tmp = "";
+        var obj = $("#alarm_tab"); obj.empty();
+        for(var i=0x00; i<jsonData.length; i++){
+            tmp = "";
+            tmp += '<tr>';
+            tmp += '<td class="almtb_tab_td1">'+ jsonData[i].substring(0,4) + '年' + jsonData[i].substring(4,6) + '月' +'</td>';
+            tmp += '<td class="almtb_tab_td2"><a href="alarm.html?date='+ jsonData[i] +'">查看</a></td>';
+            tmp += '<td class="almtb_tab_td3"><a href="#1" onclick="histroy_download(\''+ jsonData[i] +'\')">下载</a></td>';
+            tmp += '</tr>';
+            obj.append(tmp);
+        }
+
+        Table_LineColor("alarm_tab", "#fff", "#c5dee0", "#f8cd90");
+    }
+    
+    /*
+        函数名称：histroy_download
+        函数功能：下载指定月份的文件报表
+        传入参数：file_date
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-02-24
+    */
+    function histroy_download(file_date){ 
+        var postJson = {};
+        postJson.display = 2;
+        postJson.data = file_date;
+        
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/history_list.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    case 401: layer.msg(temp.data); return;
+                    default: layer.alert(temp.data); return;
+                }
+                location.href = "download/" + temp.data;
+            },
+            "html");
+    }
+</script>

@@ -1,0 +1,26 @@
+# SVN 残留
+.svn/
+*/.svn/
+
+# OCR 调试文件
+*_ocr.jpg
+
+# 编译产物
+*.o
+*.obj
+collector/src/collector
+*.cgi
+qt_display/src/elevator_display
+qt_display/src/Makefile
+qt_display/src/moc_*
+qt_display/src/ui_*
+
+# 固件输出
+firmware/output/
+firmware/work/
+*.img
+*.img.xz
+
+# IDE
+.vscode/
+.idea/

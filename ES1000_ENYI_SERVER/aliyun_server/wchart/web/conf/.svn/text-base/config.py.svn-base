@@ -1,0 +1,27 @@
+#coding=utf-8
+
+#########################################################################
+#   系统运行需要的配置参数存储到该文件下面
+#########################################################################
+
+class conf:
+    REDIS_SERVER_IP                     = "118.190.20.24"                                                       #REDIS服务器IP
+    REDIS_SERVER_PORT                   = 6379                                                              #REDIS服务器端口
+    REDIS_WCHART_TOKEN_KEY              = "wtoken"                                                          #REDIS服务器微信token键
+
+    WCHART_SERVER_URL                   = "https://api.weixin.qq.com/cgi-bin/"                              #微信服务器地址
+    WCHART_SERVER_APPID                 = "wxcf9c2a59f25a0d4b"                                              #公众号的ID
+    WCHART_SERVER_APPSECRET             = "WCHART_APPSECRET"                                                #密钥
+    WCHART_DEVICE_URL                   = "https://api.weixin.qq.com/device/"                               #设备授权接口地址
+    WCHART_MSGMODE_ID                   = "3gFJjNbu73C23pqQ0Aa2JPtLbQ2cwaiccv_EhihXCOs"                     #微信推送信息模板
+
+#服务器返回错误码
+WEB_ERR_CODE = {
+    "NONE_ERR"                  : '''{"error":0, "data": "ok"}''',                                          #服务器响应正确
+    "METHOD_ERR"                : '''{"error":404, "data":"Method Error"}''',                               #提交方式错误
+    "REQUEST_DATA_NONE"         : '''{"error":1001, "data": "request data is None"}''',                     #提交数据为空
+    "REQUEST_DATA_ERR"          : '''{"error":1002, "data": "request data is Error"}''',                    #提交数据有误-格式错误
+    "REQUEST_DATA_NOFULL"       : '''{"error":1003, "data": "request data is Error"}''',                    #提交数据有误-不完整
+    "SEND_WCHART_ERROR"         : '''{"error":1004, "data": "send MSG error"}''',                           #推送微信失败
+    "SEND_WCHART_EXCEPT"        : '''{"error":1005, "data": "send MSG error"}'''                            #推送微信异常
+}

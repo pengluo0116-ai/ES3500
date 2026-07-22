@@ -1,0 +1,72 @@
+body {
+    width:100%;
+    background-color:#E7E8EB;
+    margin:0;
+    font-family:微软雅黑;
+}
+
+a{ text-decoration:none;}
+
+/*头部导航*/
+.head_by{ width:100%; height:67px; background-image:url(../image/unireg_head.png); background-repeat:repeat-x; margin-bottom:0px; }
+
+/*网页体*/
+.body_by{ width:1200px; margin:30px auto 90px auto; border:1px solid #D9DADC; background-color:#FFFFFF; }
+
+/*页脚*/
+.foot_by{ width:100%; height:66px; background-color:#B8B9B9;  margin-bottom:0px;}
+
+/*语音配置文件上传标题*/
+.zc_title{ width:100%; height:50px; margin:0; background-color:#E7E8EB; line-height:50px; text-indent:30px;}
+
+/*语音配置文件内容体*/
+.zc_by{ width:100%; margin:60px auto 60px auto; overflow:hidden; font-size:14px; }
+
+/*语音配置文件内容体左侧*/
+.zc_lift{ width:699px; border-right:1px solid #D9DADC; float:left; }
+.zc_tb{ width:699px; }
+.zc_tb td{ line-height:35px; }
+.zc_tb input{ width:80%; height:30px; line-height:30px; }
+.zc_td1{ width:135px; }
+.zc_td2{ width:75px; text-align:left; }
+.zc_td3{ width:350px; }
+.zc_td3_zc{ line-height:15px; color:gray; }
+.zc_td4{ width:139px; }
+
+/*语音配置文件内容体右侧*/
+.zc_right{ width:500px; float:right; }
+.zc_right_d{ width:100%; height:70px; text-align:center; line-height:70px; }
+
+/*文件上传样式*/
+.a-upload {
+    padding: 4px 10px;
+    height: 20px;
+    line-height: 20px;
+    position: relative;
+    cursor: pointer;
+    color: #888;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    display: inline-block;
+    *display: inline;
+    *zoom: 1
+}
+
+.a-upload  input {
+    position: absolute;
+    font-size: 100px;
+    right: 0;
+    top: 0;
+    opacity: 0;
+    filter: alpha(opacity=0);
+    cursor: pointer
+}
+
+.a-upload:hover {
+    color: #444;
+    background: #eee;
+    border-color: #ccc;
+    text-decoration: none
+}

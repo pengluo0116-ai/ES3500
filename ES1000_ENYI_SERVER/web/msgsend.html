@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link href="css/css.css" rel="stylesheet" type="text/css" />
+        <script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+        <script src="js/JS.js" type="text/javascript"></script>
+        <script src="js/js_display.js" type="text/javascript"></script>
+        <!--[if lt IE 9]>
+            <script src="js/json/json2.js" type="text/javascript"></script>
+        <![endif]-->
+        <script src="js/layer/layer.js" type="text/javascript"></script>
+        <script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+        <style type="text/css">
+            .msg_tr { height:auto; padding-bottom: 20px;}
+            #dev_list{ border-top-width: 0; }
+        </style>
+        <title>报警推送</title>
+    </head>
+    <body>
+        <div class="bd">
+	        <div class="logo_tr">
+		        电梯运行实时监控系统
+	        </div>
+	        <div class="set_tr">
+		        <ul>
+			        <li><a href="index.html">主机配置</a></li>
+                    <li><a href="history_list.html">历史故障</a></li>
+                    <li><a href="device.html">设备管理</a></li>
+			        <li class="set_tr_li"><a href="#">报警推送人员</a></li>
+                    <li><a href="post.html">推送设定</a></li>
+                    <li><a href="updateuser.html">修改密码</a></li>
+                    <li><a href="alipost.html">阿里上报</a></li>
+                    <li><a href="othersetting.html">时间设定</a></li>
+		        </ul>
+	        </div>
+
+            <!--页面开始-->
+            <div id="page1" class="msg_tr" >
+                
+                <table border="0" cellpadding="0" cellspacing="0" class="msg_tab" style="margin-top:10px;">
+                    <tr class="msg_tr_title">
+                        <td class="msg_tab1">人员ID</td>
+                        <td class="msg_tab2">姓名</td>
+                        <td class="msg_tab3">电话(手机)</td>
+                        <td class="msg_tab4">微信</td>
+                        <td class="msg_tab5">操作</td>
+                    </tr>
+                    <tr>
+                        <td class="msg_tab1">***</td>
+                        <td class="msg_tab2"><input id="txt_name_0" maxlength="18" type="text" /></td>
+                        <td class="msg_tab3"><input id="txt_tel_0" maxlength="15" type="text" /></td>
+                        <td class="msg_tab4">
+                            <div class="msg_wct_l"><input id="txt_wx_0" type="text" readonly /></div>
+                            <div class="msg_wct_r"><a href="#1" onclick="bdwchart('0')">绑定微信</a></div>
+                        </td>
+                        <td class="msg_tab5">
+                            <input type="button" onclick="addUser()" value="添加人员" />
+                        </td>
+                    </tr>
+                </table>
+                <table id="person_list" border="0" cellpadding="0" cellspacing="0" class="msg_tab" style="border-top-width:0;">
+                </table>
+            
+            </div>
+            <!--页面结束-->
+        </div>
+    </body>
+</html>
+
+<script type="text/javascript">
+    
+    $(document).ready(function(){
+        getUser();
+    });
+    
+    /*微信绑定*/
+    function bdwchart(user_id){
+        var obj_name = $("#txt_name_" + user_id);
+        var obj_wchart = $("#txt_wx_" + user_id);
+        
+        var name = trimStr(obj_name.val());
+        if(name==null || name.length<=0x00){ layer.tips("姓名为空", "#txt_name_" + user_id); return; }
+        
+        var url = 'qrcode.html?txt=txt_wx_' + user_id + '&uid=' + user_id; 
+        layer.open({
+            type:2,
+            title: "微信绑定-" + name,
+            shadeClose: true,
+            shade: 0.8,
+            area: ['500px', '600px'],
+            content:url
+        });
+    }
+    
+    /*获取用户列表信息*/
+    function personList_show(json_list){
+        var obj_table = $("#person_list");
+        obj_table.empty();
+        
+        for(var i=0; i<json_list.length; i++){
+            var tmpStr = "";
+            
+            tmpStr += '<tr id="ptr_'+ json_list[i]["id"] +'">';
+            tmpStr += '<td class="msg_tab1">'+ json_list[i]["id"] +'</td>';
+            tmpStr += '<td class="msg_tab2">'+ json_list[i]["name"] +'</td>';
+            tmpStr += '<td class="msg_tab3">'+ json_list[i]["tel"] +'</td>';
+            tmpStr += '<td class="msg_tab4">';
+            tmpStr += '<div class="msg_wct_l">'+ json_list[i]["wchart"] +'</div>';
+            tmpStr += '</td>';
+            tmpStr += '<td class="msg_tab5">';
+            tmpStr += '<a href="#1" onclick="delUser('+ json_list[i]["id"] +')">删除</a>';
+            tmpStr += '</td>';
+            tmpStr += '</tr>';
+            
+            obj_table.append(tmpStr);
+        }
+        
+        Table_LineColor("person_list", "#fff", "#c5dee0", "#f8cd90");
+    }
+    
+    function getUser(){ 
+        var postjson = {};
+        postjson.display = 1; 
+        
+       var _load = layer.load();
+        $.post(
+            "cgi-bin/msgsend.cgi",
+            JSON.stringify(postjson),
+            function (data, status) { 
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+
+                switch (parseInt(temp.error)) {
+                    case 399:
+                        layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    case 401: $("#person_list").empty(); layer.msg("推送人员列表为空"); return;
+                    default: layer.alert(temp.data); return;
+                }
+				
+                personList_show(temp.data);
+            },
+            "html");
+    }
+    
+    /*添加用户*/
+    function addUser_check(jsonPost){
+        var obj_name = $("#txt_name_0");
+        var obj_tel = $("#txt_tel_0");
+        var obj_wchart = $("#txt_wx_0");
+        
+        var str_name = trimStr(obj_name.val());
+        var str_tel = trimStr(obj_tel.val());
+        var str_wchart = trimStr(obj_wchart.val());
+        
+        if(str_name.length <= 0x00){ layer.tips("姓名为空", "#txt_name_0"); return false; }
+        if(str_tel.length<=0x00 && str_wchart.length<=0x00){ alert("电话号码和微信不得全部为空"); return false; }
+        
+        jsonPost.name = str_name;
+        jsonPost.tel = str_tel;
+        jsonPost.wchart = str_wchart;
+        
+        return true;
+    }
+    
+    function addUser(){
+        var postjson = {};
+        postjson.display = 2;
+        if(!addUser_check(postjson)) return;
+        
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/msgsend.cgi",
+            JSON.stringify(postjson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+
+                switch (parseInt(temp.error)) {
+                    case 399:
+                        layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+                
+                $("#txt_name_0").val("");
+                $("#txt_tel_0").val("");
+                $("#txt_wx_0").val("");
+				
+                /*添加成功*/
+                getUser();
+            },
+            "html");
+    }
+    
+    /*删除用户*/
+    function delUser(id){
+        var postjson = {};
+        postjson.display = 3; 
+        postjson.id = id + "";
+        
+       var _load = layer.load();
+        $.post(
+            "cgi-bin/msgsend.cgi",
+            JSON.stringify(postjson),
+            function (data, status) { 
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+
+                switch (parseInt(temp.error)) {
+                    case 399:
+                        layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+				
+                $("#ptr_" + id).remove();
+                Table_LineColor("person_list", "#fff", "#c5dee0", "#f8cd90");
+            },
+            "html");
+    }
+</script>

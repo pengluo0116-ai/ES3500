@@ -1,0 +1,18 @@
+#ifndef __CONF_H_
+#define __CONF_H_
+
+#define DBPATH              "/root/db/mydb.db"                      //数据库路径
+// #define CAMERA_CONF_PATH    "/root/camera/conf/"                    //摄像机配置文件存放路径
+// #define SYSINFO_PATH        "/root/db/sysinfo"                      //系统信息路径
+
+// #define ALARM_CONF_PATH     "/root/collecter/alarm.ini"             //报警配置信息路径
+
+
+// #define DB_BASE_PATH    "/root/database/"                                  //报警历史数据文件的路径
+
+
+#define DEVID_FILE_PATH         "/root/catch/devID"                             //设备ID存储文档地址
+// #define QRCODE_SERVER_ADDR     "http://192.168.1.126/wchart/register.ashx"     //微信二维码获取网址
+#define QRCODE_SERVER_ADDR     "http://www.emblink.com:8130/wchart/register.ashx"     //微信二维码获取网址
+
+#endif

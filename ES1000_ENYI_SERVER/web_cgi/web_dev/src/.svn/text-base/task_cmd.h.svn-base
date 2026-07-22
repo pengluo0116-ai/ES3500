@@ -1,0 +1,39 @@
+#ifndef __TASK_CMD_H__
+#define __TASK_CMD_H__
+#include <iostream>
+#include <string>
+#include <cstring>
+#include <sstream>
+#include <cstdio>
+#include <cstdlib>
+#include <unistd.h>
+
+#include "conf.h"
+#include "redis_devupdate.h"
+#include "lsystem.h"
+#include "tcp_sock_client.h"
+#include "tcp_sock_pakage.h"
+#include "jsonConfFile.h"
+#include "err_msg.h"
+#include "dbcontrl.h"
+#include "getNet_wan.h"
+
+/*
+    文档介绍：
+    1：分支处理函数在此添加
+    2：在task.cpp中的getPostData函数注册
+*/
+
+void cmd_add_group(Json::Value &jsonGroup);                     //添加小组
+void cmd_update_group(Json::Value &jsonGroup);                  //修改小组--名称
+void cmd_get_group();                                           //获取小组--所有小组信息
+void cmd_del_group(Json::Value &jsonData);                      //删除小组
+void cmd_del_group_r(Json::Value &jsonData);                    //删除小组--同时删除该组下的子组及子组中的设备，该组下的设备
+void cmd_device_getAll();                                       //获取设备--所有设备信息
+void cmd_device_add(Json::Value &jsonData);                     //添加设备
+void cmd_device_update(Json::Value &jsonData);                  //修改设备
+void cmd_device_del(Json::Value &jsonData);                     //删除设备
+void cmd_get_map_getPath();                                     //获取地图信息--路径
+void cmd_device_getByID(Json::Value &jsonData);                 //根据设备ID，获取设备信息
+void cmd_MqttInfo();                                            //获取服务器MQTT连接信息
+#endif

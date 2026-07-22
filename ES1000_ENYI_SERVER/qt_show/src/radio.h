@@ -1,0 +1,114 @@
+#ifndef __RADIO_H__
+#define __RADIO_H__
+
+/*
+    文档简介：
+    电梯的语音报警控制
+*/
+
+#include <iostream>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <pthread.h>
+#include <unistd.h>
+
+#include "conf.h"
+#include "c_md5.h"
+#include "lsystem.h"
+#include "real_cont.h"
+#include "cpp_datetimer.h"
+#include "../include/json/json.h"
+
+/*语音报警类-单台设备*/
+class radioInfo{
+    public:
+        std::string id;                     //设备ID
+        std::string dev_name;               //设备名称
+        std::string rad_name;               //音频名称
+
+        int gid;                            //父组ID
+        std::string gname;                  //父组名称
+        std::string rad_gname;              //父组音频名称
+
+        int pgid;                           //祖先组ID
+        std::string pgname;                 //祖先组名称
+        std::string rad_pgname;             //祖先组音频名称
+
+        std::string cmd_alarmRadio;         //报警语音音频指令
+
+        struct{                             //设备报警状态
+             unsigned char Power:1;          //断电
+            unsigned char Down_Alarm:1;     //蹲底
+            unsigned char Up_Alarm:1;       //冲顶
+            unsigned char Kunren:1;         //困人
+            unsigned char Speeding:1;       //超速
+            unsigned char Run_door:1;       //开门走梯
+            unsigned char Kaceng:1;         //卡层
+            unsigned char Y_N:1;            //是否报警
+            unsigned char Door_unopen:1;    //停梯不开门
+            unsigned char Door_unclose:1;   //停梯不关门
+            unsigned char Reapet:1;         //重复开关门
+            unsigned char Shake:1;          //电梯震动
+            unsigned char Voltage:1;        //电池电量低
+            unsigned char Electromobile:1;  //电动车入梯
+            unsigned char Power_down:1;     //外部掉电
+            unsigned char Slant_lr:1;       //电梯左右倾斜
+            unsigned char Slant_fb:1;       //电梯前后倾斜
+            unsigned char Manaual:1;        //手动报警
+            unsigned char longtime:1;       //长期未维保
+        }status;
+
+        struct{
+            unsigned char del:1;            //删除标志位
+            unsigned char disconnect:1;     //离线标志位
+        }cmd;
+
+        public:
+            radioInfo();
+            ~radioInfo();
+};
+
+/*语音控制类*/
+class radio{
+    private:
+        static pthread_mutex_t lock;                //锁
+        static pthread_mutex_t dataLock;            //数据锁
+        static int playState;                       //音频开启状态
+        static std::vector<radioInfo *> liftList;   //电梯列表
+        
+        static Json::Reader JReader;                //json解析器
+        static Json::Value json_liftListReal;       //电梯实时信息json格式
+        static Json::Value json_liftListInfo;       //电梯设备信息json格式
+        static std::string json_liftListReal_str;   //电梯实时信息json格式字符串
+        static std::string json_liftListInfo_str;   //电梯设备信息json格式字符串
+
+        static std::ostringstream cmd_play;         //播放指令
+
+    private:
+        static int liftInfo_update(Json::Value &jsonItem);                              //单台设备信息刷新
+        static int liftReal_update(Json::Value &jsonItem);                              //单台设备报警信息刷新
+        static int liftInfoList_update();                                               //设备信息列表刷新
+        static int liftRealList_update();                                               //设备报警信息列表刷新
+        static int lift_checkDel(radioInfo *item);                                      //检测指定的设备是否删除，并打入标志
+        static int liftList_checkDel();                                                 //检测多余的设备，并打入标志
+        static int liftList_clear();                                                    //删除多余设备
+        static int playCmd_creat(radioInfo *item);                                      //创建播放指令
+        static int liftAlarmList_update();                                              //报警播放指令列表更新
+
+    public:
+        static int init();                                                              //初始化
+        static int start();
+        static int ON();                                                                //开启播放器
+        static int OFF();                                                               //关闭播放器
+        static int get_playStatus();                                                    //获取播放器的运行状态
+
+    public:
+        static void *run_collect(void *arg);                                            //采集数据线程工作函数
+        static void *run_radio(void *arg);                                              //音频播放线程函数
+};
+
+#endif

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link href="css/css.css" rel="stylesheet" type="text/css" />
+        <script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+        <script src="js/JS.js" type="text/javascript"></script>
+        <script src="js/js_display.js" type="text/javascript"></script>
+        <!--[if lt IE 9]>
+            <script src="js/json/json2.js" type="text/javascript"></script>
+        <![endif]-->
+        <script src="js/layer/layer.js" type="text/javascript"></script>
+        <script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+        <style type="text/css">
+            .msg_tr { height:auto; padding-bottom: 20px;}
+        </style>
+        <title>实时数据转发</title>
+    </head>
+    <body>
+        <div class="bd">
+            <div class="logo_tr">
+                电梯运行实时监控系统
+            </div>
+            <div class="set_tr">
+                <ul>
+                    <li><a href="index.html">主机配置</a></li>
+                    <li><a href="history_list.html">历史故障</a></li>
+                    <li><a href="device.html">设备管理</a></li>
+                    <li><a href="msgsend.html">报警推送人员</a></li>
+                    <li><a href="post.html">推送设定</a></li>
+                    <li><a href="updateuser.html">修改密码</a></li>
+                    <li class="set_tr_li"><a href="#">阿里上报</a></li>
+                    <li><a href="othersetting.html">时间设定</a></li> 
+                </ul>
+            </div>
+            <!--页码1配置信息-->
+            <div id="page1" class="msg_tr">
+                <!--Ali_MQTT-->
+                <div class="msg_tb" style="width: 718px; margin-top: 20px; line-height:36px; height: 36px; text-indent: 10px; font-weight: bolder; background-color: #D1D1D1">阿里数据推送配置</div>
+                <div class="pt_type" style="margin-left: 130px; margin-top:5px; margin-bottom: 5px;">
+                    <div class="pt_xy"><label><input id="aliup" type="checkbox" value="11" checked="true"/>Ali_MQTT推送</label></div>
+                </div>
+                <table id="d_ali" class="post_tb" border="0" cellpadding="0" cellspacing="0" style="display:block;"> 
+                    <tr>
+                        <td class="post_td1" style="width: 119px;">product_key:</td>
+                        <td style="width: 600px;"><input style="width:300px" type="text" id="_key"/></td>
+                    </tr>
+                    <tr>
+                        <td class="post_td1" style="width: 110px;">device_name:</td>
+                        <td style="width: 600px;"><input style="width:300px" type="text" id="_name"></td>
+                    </tr>
+                    <tr>
+                        <td class="post_td1" style="width: 119px;">device_secret:</td>
+                        <td style="width: 600px;"><input style="width:300px" type="text" id="_secret"></td>
+                    </tr>
+                    <tr>
+                        <td class="post_td1" style="width: 119px;">上报时间间隔(s):</td>
+                        <td style="width: 600px;"><input style="width:300px" type="text" id="_alitime"></td>
+                    </tr>
+                </table>
+                <center>
+                    <input type="button" value="提交配置" onclick="upalicmd_submit()" style="margin-top: 20px;"/>
+                </center>
+            </div>
+            <!--页1配置结束-->
+        </div>
+        </body>
+        </html>
+        
+        <script type="text/javascript">
+        
+            $(document).ready(function(){
+                $("#aliup").change(function() {
+                    if($("#aliup").attr('checked'))
+                        $("#d_ali").css("display","block");
+                    else
+                        $("#d_ali").css("display","none");
+                });
+                cmd_getPostConf();
+            });
+        
+            var pt_option = {
+                ptype : {
+                    Ali_MQTT:11
+                }
+            };
+        
+            /*
+                函数名称：pt_loadTCPFTLV
+                函数功能：加载TCP FTLV配置数据
+                传入参数：jsonConf
+                传出数据：无
+                编写人员:王清杰
+                编写时间：2017-09-19
+            */
+            function pt_loadAliMQTT(jsonConf)
+            {
+                if(~~jsonConf["aliupswitch"])
+                {
+                    $("#aliup").attr("checked",true);
+                    $("#d_ali").css("display","block");
+                    $("#_key").val(jsonConf["product_key"]);
+                    $("#_name").val(jsonConf["device_name"]);
+                    $("#_secret").val(jsonConf["device_secret"]);
+                    $("#_alitime").val(~~jsonConf["alitime"]);
+                } 
+                else
+                {
+                    $("#aliup").attr("checked",false);
+                    $("#d_ali").css("display","none");
+                }    
+               
+            }
+        
+            /*
+                函数名称：pt_load
+                函数功能：加载配置数据
+                传入参数：jsonConf   配置参数
+                传出数据：无
+                注意事项：无
+                编写人员：王凤龙
+                编写时间：2017-06-23
+            */
+            function pt_load(jsonConf){
+                pt_loadAliMQTT(jsonConf);
+            }
+        
+            /*
+                函数名称：cmd_getPostConf
+                函数功能：获取配置数据
+                传入参数：无
+                传出数据：无
+                注意事项：无
+                编写人员：王凤龙
+                编写时间：2017-06-23
+            */
+            /*获取配置信息-类函数*/
+            function cmd_getPostConf(){
+                var postjson = {};
+                postjson.display = 3;
+                
+                var _load = layer.load();
+                $.post(
+                    "cgi-bin/post.cgi",
+                    JSON.stringify(postjson),
+                    function(data, status){
+                        layer.close(_load);
+                        if (status != "success") { layer.alert("连接服务器失败"); return; }
+                        var temp = eval('(' + data + ')');
+
+                        switch (parseInt(temp.error)) {
+                            case 399:
+                                layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                            case 0: break;
+                            default: layer.alert(temp.data); return;
+                        }
+                        pt_load(temp);
+                });
+            }
+
+            /*
+                函数名称：pt_checkoutAliMQTT
+                函数功能：检出AliMQTT配置数据
+                传入参数：jsonConf检出的数据存储到该引用指向的存储空间
+                传出数据：true正确 false错误
+                编写人员：王清杰
+                编写时间；2017-09-19
+            */
+            function pt_checkoutAliMQTT(jsonConf)
+            {
+                if($("#aliup").attr('checked'))
+                {
+                    var tmpStr = "";
+                    tmpStr = trimStr($("#_key").val());
+                    if(tmpStr == ""){layer.tips("product_key为空!","#_key");return false;}
+                    var tmp = "";
+                    tmp = trimStr($("#_name").val());
+                    if(tmp == ""){layer.tips("device_name为空!","#_name"); return false;}
+                    var tmpSecret = "";
+                    tmpSecret = trimStr($("#_secret").val());
+                    if(tmpSecret == ""){layer.tips("device_secret为空!","#_secret"); return false;}
+                    var alitm = trimStr($("#_alitime").val());
+                    if(alitm == ""){layer.tips("alitime为空!","#_alitime");return false;}
+                    jsonConf["aliupswitch"] = 1;
+                    jsonConf["product_key"] = tmpStr;
+                    jsonConf["device_name"] = tmp;
+                    jsonConf["device_secret"] = tmpSecret;
+                    jsonConf["alitime"] = ~~alitm;
+                }else{
+                    jsonConf["aliupswitch"] = 0;
+                }
+                
+                
+                return true;
+            }
+            /*
+                函数名称:upalicmd_submit
+                函数功能:阿里数据上报配置
+                传入参数:无
+                传出数据:无
+                编写人员:王清杰
+                编写时间:2018-6-1
+            */
+            function upalicmd_submit(){
+                var postJson = {};
+                postJson["display"] = 4;
+        
+                pt_checkoutAliMQTT(postJson);
+                var _load = layer.load();
+                $.post(  
+                    "cgi-bin/post.cgi",
+                    JSON.stringify(postJson),
+                    function(data, status){
+                        layer.close(_load);
+                        if (status != "success") { layer.alert("连接服务器失败"); return; }
+                        var temp = eval('(' + data + ')');
+        
+                        switch (parseInt(temp.error)) {
+                            case 399:
+                                layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                            case 0: break;
+                            default: layer.alert(temp.data); return;
+                        }
+                        
+                        layer.msg("提交成功");
+                },
+                "html");
+            }
+        
+        </script>

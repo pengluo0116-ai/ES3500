@@ -1,0 +1,2 @@
+layer.open 直接引用layer.js脚本
+如果要有输入框，需要引用extends里面的文件

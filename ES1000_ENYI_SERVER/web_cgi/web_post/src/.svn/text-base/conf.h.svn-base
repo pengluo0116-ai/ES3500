@@ -1,0 +1,7 @@
+#ifndef __CONF_H_
+#define __CONF_H_
+
+#define DBPATH              "/root/model/DeviceInfo.db"                     //数据库路径
+#define ALARM_CONF_PATH     "/root/collecter/post.ini"                      //配置文件路径
+
+#endif

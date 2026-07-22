@@ -1,0 +1,561 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+<!--[if lt IE 9]>
+    <script src="js/json/json2.js" type="text/javascript"></script>
+<![endif]-->
+<script src="js/layer/layer.js" type="text/javascript"></script>
+<script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+<script src="js/JS.js" type="text/javascript"></script>
+<style type="text/css">
+    .msg_tr { height:auto; padding-bottom: 20px;}
+    .btn_hq{font-weight: bolder; height: 35px;}
+    #netct{padding: 10px 0 10px 0;}
+    #sysct{padding: 10px 0 10px 0;}
+</style>
+<title>主机配置</title>
+</head>
+<body>
+<div class="bd">
+	<div class="logo_tr">
+		电梯运行实时监控系统
+	</div>
+	<div class="set_tr">
+        <ul>
+                <li class="set_tr_li"><a href="#">主机配置</a></li>
+                <li><a href="history_list.html">历史故障</a></li>
+                <li><a href="device.html">设备管理</a></li>
+                <li><a href="msgsend.html">报警推送人员</a></li>
+                <li><a href="post.html">推送设定</a></li>
+                <li><a href="updateuser.html">修改密码</a></li>
+                <li><a href="alipost.html">阿里上报</a></li>
+                <li><a href="othersetting.html">时间设定</a></li>
+        </ul>
+    </div>
+	<!--页码1配置信息-->
+	<div id="page1" class="msg_tr">
+        <div class="msg_tb" style="margin-top:10px;">
+            
+            <div class="msg_tb_tr" style="background-color: #D1D1D1; height: auto; text-align: left;">
+                <div style="padding-left: 20px;">
+                修改以下配置，将在下次启动后生效，如果需要立即生效，提交修改后，点击“立即重启主机”按钮。<br />
+                在浏览器的地址栏输入本主机IP即可访问本主机，如果您修改了本主机IP，请妥善保存。
+                </div>
+            </div>
+            <div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">本主机IP:</div>
+				<div class="msg_tb_tr_2" id="show_wip"></div>
+				<div class="msg_tb_tr_2" style="border-right-style: none;">
+                    <span style="display: none;">自动获取</span>
+					<input type="text" class="msg_txt" id="txt_wip" />
+				</div>
+				<div class="msg_tb_tr_3">
+					<div style="display: none"><label><input type="checkbox" id="ck_dhcp" checked="checked" value="0" />自动获取IP</label></div>
+				</div>
+			</div>
+			<div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">网关地址:</div>
+				<div class="msg_tb_tr_2" id="show_wgtway"></div>
+				<div class="msg_tb_tr_2" style="border-right-style: none;">
+                    <span style="display: none;">自动获取</span>
+					<input type="text" class="msg_txt" id="txt_wgtway" />
+				</div>
+				<div class="msg_tb_tr_3">
+					
+				</div>
+			</div>
+			<div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">子网掩码:</div>
+				<div class="msg_tb_tr_2" id="show_wmask"></div>
+				<div class="msg_tb_tr_2" style="border-right-style: none;">
+                    <span style="display: none;">自动获取</span>
+					<input type="text" class="msg_txt" id="txt_wmask" />
+				</div>
+				<div class="msg_tb_tr_3">
+					
+				</div>
+			</div>
+            <div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">MAC地址:</div>
+				<div class="msg_tb_tr_2" id="show_wmac"></div>
+				<div class="msg_tb_tr_2" style="border-right-style: none;">
+                    <span style="display: none;">自动获取</span>
+					<input type="text" class="msg_txt" id="txt_wmac" />
+				</div>
+				<div class="msg_tb_tr_3">
+					
+				</div>
+			</div>
+            <div class="msg_tb_tr" id="netct">
+                <input type="button" class="btn_hq" onclick="clr_text()" style="color: RED;" value="清空输入信息" />
+                <input type="button" class="btn_hq" style="margin-left: 20px;" value="提交网络配置" onclick="submitData()" />
+            </div>
+		</div>
+        
+        <div class="msg_tb" id="dvtj" style=" margin-top: 20px;">
+            <div class="msg_tb_tr" style="background-color: #D1D1D1; height: auto; text-align: left;"><div style="padding-left: 20px;">DNS配置</div></div>
+            <div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">地址1:</div>
+				<div class="msg_tb_tr_2" id="show_dns0"></div>
+				<div class="msg_tb_tr_2" style="border-right-style: none;">
+					<input type="text" class="msg_txt" id="txt_dns0" />
+				</div>
+				<div class="msg_tb_tr_3"></div>
+			</div>
+            <div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">地址2:</div>
+				<div class="msg_tb_tr_2" id="show_dns1"></div>
+				<div class="msg_tb_tr_2" style="border-right-style: none;">
+					<input type="text" class="msg_txt" id="txt_dns1" />
+				</div>
+				<div class="msg_tb_tr_3"></div>
+			</div>
+            <div class="msg_tb_tr" id="sysct">
+            <input type="button" class="btn_hq" style="margin-left: 20px;" onclick="setSysDNS()" value="提交DNS信息" />
+            </div>
+        </div>
+        
+        <div class="msg_tb" id="dvtj" style=" margin-top: 20px;">
+            <div class="msg_tb_tr" style="background-color: #D1D1D1; height: auto; text-align: left;"><div style="padding-left: 20px;"> 设备信息及重启</div></div>
+            <div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">硬件版本:</div>
+                <div class="cmr_tb_trgj" id="dev_version"></div>
+            </div>
+            <div class="msg_tb_tr">
+				<div class="msg_tb_tr_1">软件版本:</div>
+                <div class="cmr_tb_trgj" id="sys_version"></div>
+            </div>
+            <div class="msg_tb_tr" id="sysct">
+            <input type="button" class="btn_hq" style="margin-left: 20px;" value="立即重启主机" onclick="rebootServer()" />
+            </div>
+        </div>
+	</div>
+	<!--页1配置结束-->
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myserver = null;
+    $(document).ready(function () {
+        myserver = new clt_smt();
+
+        getSysDNS();
+        
+        getData(); //获取主机信息
+        getSysInfo();
+
+        $("#ck_dhcp").change(isDhcpCk);
+    });
+
+    function clt_smt() {
+        this.obj_wip = $("#txt_wip");
+        this.obj_wgtway = $("#txt_wgtway");
+        this.obj_wmask = $("#txt_wmask");
+        this.obj_wmac = $("#txt_wmac");
+
+        this.obj_show_wip = $("#show_wip");
+        this.obj_show_wgtway = $("#show_wgtway");
+        this.obj_show_wmask = $("#show_wmask");
+        this.obj_show_wmac = $("#show_wmac");
+
+        this.wgtway = null;
+        this.wip = null;
+        this.wmask = null;
+        this.wmac = null;
+        this.proto = 0; //0dhcp
+        this.netIsCont = 0; //网线连接
+    }
+
+    /*将主机信息显示到显示区*/
+    clt_smt.prototype.showData_inBox = function () {
+        this.obj_show_wip.html(trimStr(this.wip));
+        this.obj_show_wgtway.html(trimStr(this.wgtway));
+        this.obj_show_wmask.html(trimStr(this.wmask));
+        this.obj_show_wmac.html(trimStr(this.wmac));
+    }
+
+    /*将主机信息显示到输入框*/
+    clt_smt.prototype.showData_inText = function () {
+        this.obj_wip.val(trimStr(this.wip));
+        this.obj_wgtway.val(trimStr(this.wgtway));
+        this.obj_wmask.val(trimStr(this.wmask));
+        this.obj_wmac.val(trimStr(this.wmac));
+    }
+
+    /*将输入框数据写入相应变量*/
+    clt_smt.prototype.textWriteToClass = function () {
+        this.wip = trimStr(this.obj_wip.val());
+        this.wgtway = trimStr(this.obj_wgtway.val());
+        this.wmask = trimStr(this.obj_wmask.val());
+        this.wmac = trimStr(this.obj_wmac.val());
+    }
+
+    /*输入框数据清空*/
+    clt_smt.prototype.clearText = function () {
+        this.obj_wip.val("");
+        this.obj_wgtway.val("");
+        this.obj_wmask.val("");
+        this.obj_wmac.val("");
+    }
+
+    /*输入框数据校验*/
+    clt_smt.prototype.cheackText = function () {
+        var tmp_str;
+
+        //wip
+        tmp_str = null;
+        tmp_str = trimStr(this.obj_wip.val());
+        if (tmp_str == null || tmp_str.length == 0) { layer.tips("本主机IP为空", "#txt_wip"); return false; }
+        if (!isIP(tmp_str)) { layer.tips("IP格式错误", "#txt_wip"); return false; }
+        this.obj_wip.val(tmp_str);
+
+        //wgtway
+        tmp_str = null;
+        tmp_str = trimStr(this.obj_wgtway.val());
+        if (tmp_str == null || tmp_str.length == 0) { layer.tips("网关为空", "#txt_wgtway"); return false; }
+        if (!isIP(tmp_str)) { layer.tips("IP格式错误", "#txt_wgtway"); return false; }
+        this.obj_wgtway.val(tmp_str);
+
+        //wmask
+        tmp_str = null;
+        tmp_str = trimStr(this.obj_wmask.val());
+        if (tmp_str == null || tmp_str.length == 0) { layer.tips("子网掩码为空", "#txt_wmask"); return false; }
+        if (!isIP(tmp_str)) { layer.tips("子网掩码格式错误", "#txt_wmask"); return false; }
+
+        if (tmp_str == "0.0.0.0" || tmp_str == "255.255.255.255") { layer.tips("子网掩码格式错误", "#txt_wmask"); return false; }
+        var tmp_zw = tmp_str.split(".");
+        if (tmp_zw.length != 4) { layer.tips("子网掩码格式错误", "#txt_wmask"); return false; }
+        for (var i = 0; i < 3; i++) {
+            if (~ ~tmp_zw[i] < ~ ~tmp_zw[i + 1]) { layer.tips("子网掩码格式错误", "#txt_wmask"); return false; }
+            if (!(
+                (~ ~tmp_zw[i] == 0 || ~ ~tmp_zw[i] == 255) &&
+                (~ ~tmp_zw[i + 1] == 0 || ~ ~tmp_zw[i + 1] == 255)
+            )) { layer.tips("子网掩码格式错误", "#txt_wmask"); return false; }
+        }
+        this.obj_wmask.val(tmp_str);
+        
+        //wmac
+        tmp_str = null;
+        tmp_str = trimStr(this.obj_wmac.val()); 
+        if (tmp_str == null || tmp_str.length == 0) { layer.tips("MAC地址为空", "#txt_wmac"); return false; }
+        if(!isMAC(tmp_str)){ layer.tips("MAC地址格式有误", "#txt_wmac"); return false; }
+        this.obj_wmac.val(tmp_str);
+
+        return true;
+    }
+
+    /*获取主机信息*/
+    function getData() {
+
+        var postJson = {};
+        postJson.display = 2;
+        var _load = layer.load();
+        
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+
+                myserver.wip = temp.wip;
+                myserver.wgtway = temp.wgateway;
+                myserver.wmask = temp.wmask;
+                myserver.proto = temp.proto;
+                myserver.netIsCont = temp.netIsCont;
+                myserver.wmac = temp.wmac;
+
+                myserver.showData_inBox();
+                myserver.showData_inText();
+
+                if (myserver.netIsCont == 1) {
+                    myserver.obj_show_wip.html("网线断开");
+                }
+
+                if (myserver.proto == 1) {
+                    $("#ck_dhcp").attr("checked", false);
+                    $("#ck_dhcp").val("1");
+                } else {
+                    myserver.obj_wip.css("display", "none");
+                    myserver.obj_wgtway.css("display", "none");
+                    myserver.obj_wmask.css("display", "none");
+                    myserver.obj_wmac.css("display", "none");
+                    $(".msg_tb_tr").find("span").css("display", "");
+                }
+            },
+            "html");
+    }
+
+    /*提交修改信息*/
+    function submitData() {
+        var postJson = {};
+        postJson.display = 1;
+        postJson.dhcp = $("#ck_dhcp").val();
+
+        if (~ ~$("#ck_dhcp").val() == 1) {
+
+            if (!myserver.cheackText()) return;
+            myserver.textWriteToClass();
+            //postJson.sname = 10001;
+            postJson.wip = myserver.wip;
+            postJson.wgateway = myserver.wgtway;
+            postJson.wmask = myserver.wmask;
+            postJson.wmac = myserver.wmac;
+
+        } else {
+            //name
+            var tmp_str = null;
+            tmp_str = trimStr(myserver.obj_sname.val());
+
+            if (tmp_str == null || tmp_str.length == 0) { layer.tips("服务端口为空", "#txt_sname"); return false; }
+            if (isNaN(tmp_str)) { layer.tips("应为数字 范围:10000-10100", "#txt_sname"); return false; }
+            if ((~ ~tmp_str < 10000) || (~ ~tmp_str > 10100)) { layer.tips("取值范围:10000-10100", "#txt_sname"); return false; }
+
+            myserver.obj_sname.val(tmp_str);
+            postJson.sname = tmp_str;
+            postJson.wip = "192.168.1.96";
+            postJson.wgateway = "192.168.1.1";
+            postJson.wmask = "255.255.255.0";
+            postJson.wmac = "f2:9e:e3:ba:9e:ad";
+        }
+
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+
+                myserver.sname = postJson.sname;
+                myserver.wip = postJson.wip;
+                myserver.wgtway = postJson.wgateway;
+                myserver.wmask = postJson.wmask;
+
+                myserver.showData_inBox();
+                myserver.showData_inText();
+
+                layer.msg("修改成功,重启系统才能生效");
+            },
+            "html");
+    }
+
+    /*清空输入框数据*/
+    function clr_text() {
+        myserver.clearText();
+    }
+
+    /*重启设备回调函数*/
+    function __callback_rebootServer() {
+        var postJson = {};
+        postJson.display = 3;
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+                layer.alert(
+                    "系统将重启，请关闭浏览器"
+                );
+
+            },
+            "html");
+    }
+
+    /*重启设备*/
+    function rebootServer() {
+        layer.confirm(
+            "确定重启本主机?",
+            { btn: ["确定", "取消"] },
+            __callback_rebootServer,
+            function () { return; }
+        );
+    }
+
+    /*恢复出厂设置回调函数*/
+    function __callback_resetServer() {
+        var postJson = {};
+        postJson.display = 4;
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+                layer.alert(
+                    "系统即将恢复出厂设置，请关闭浏览器"
+                );
+
+            },
+            "html");
+    }
+
+    /*恢复出厂设置*/
+    function resetServer() {
+        layer.confirm(
+            "恢复出厂设置，所有设置将被清空,确定恢复出厂设置?",
+            { btn: ["确定", "取消"] },
+            __callback_resetServer,
+            function () { return; }
+        );
+    }
+
+    /*复选框操作*/
+    function isDhcpCk() {
+        var tmp_obj = $("#ck_dhcp");
+        if (~ ~tmp_obj.val() == 1) {
+            tmp_obj.val("0");
+            myserver.obj_wip.css("display", "none");
+            myserver.obj_wgtway.css("display", "none");
+            myserver.obj_wmask.css("display", "none");
+            $(".msg_tb_tr").find("span").css("display", "");
+        } else {
+            tmp_obj.val("1");
+            myserver.obj_wip.css("display", "");
+            myserver.obj_wgtway.css("display", "");
+            myserver.obj_wmask.css("display", "");
+            $(".msg_tb_tr").find("span").css("display", "none");
+        }
+
+    }
+
+    /*获取设备版本信息*/
+    function getSysInfo() {
+        var postJson = {};
+        postJson.display = 5;
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: $("#dev_version").html(temp.data); $("#sys_version").html(temp.data); return;
+                }
+
+                try { $("#sys_version").html(temp.sys_version); } catch (err) { }
+                try { $("#dev_version").html(temp.dev_version); } catch (err) { }
+            },
+            "html");
+    }
+    
+    /*获取设备的DNS*/
+    function getSysDNS(){
+        var postJson = {};
+        postJson.display = 6;
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+
+                var obj_show_dns0 = $("#show_dns0");    obj_show_dns0.html("");
+                var obj_show_dns1 = $("#show_dns1");    obj_show_dns1.html("");
+                var obj_txt_dns0 = $("#txt_dns0");      obj_txt_dns0.val("");
+                var obj_txt_dns1 = $("#txt_dns1");      obj_txt_dns1.val("");
+
+                var len = temp.data.length > 2 ? 2 : temp.data.length; 
+                for(var i=0; i<len; i++){
+                    $("#show_dns" + i).html(temp.data[i]);
+                    $("#txt_dns" + i).val(temp.data[i]);
+                }
+            },
+            "html");
+    }
+    
+    /*设置设备的DNS*/
+    function setSysDNS_ckeck(_jsonList){
+        var obj_txt_dns0 = $("#txt_dns0");
+        var obj_txt_dns1 = $("#txt_dns1");
+        
+        var str_dns0 = trimStr(obj_txt_dns0.val());
+        var str_dns1 = trimStr(obj_txt_dns1.val());
+        
+        if(str_dns0.length<=0x00 && str_dns1.length<=0x00){ layer.tips("至少填写一个DNS地址", "#txt_dns0"); return false; }
+
+        if(str_dns0.length > 0x00){
+            if(!isIP(str_dns0)){ layer.tips("格式有误", "#txt_dns0"); return false; }
+            _jsonList.push(str_dns0);
+        }
+        
+        if(str_dns1.length > 0x00){
+            if(!isIP(str_dns1)){ layer.tips("格式有误", "#txt_dns1"); return false; }
+            _jsonList.push(str_dns1);
+        }
+        
+        return true;
+    }
+    
+    function setSysDNS(){
+        var postJson = {};
+        postJson.display = 7;
+        postJson.data = [];
+        if(!setSysDNS_ckeck(postJson.data)) return;
+        
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postJson),
+            function (data, status) {
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399: location.href = "login.html"; return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+                
+                $("#show_dns0").html(trimStr($("#txt_dns0").val()));
+                $("#show_dns1").html(trimStr($("#txt_dns1").val()));
+                layer.msg("DNS配置成功");
+
+            },
+            "html"
+        );
+    }
+</script>

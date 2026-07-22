@@ -1,0 +1,304 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+<script src="js/JS.js" type="text/javascript"></script>
+<!--[if lt IE 9]>
+    <script src="js/json/json2.js" type="text/javascript"></script>
+<![endif]-->
+<script src="js/layer/layer.js" type="text/javascript"></script>
+<script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+<title>修改密码</title>
+</head>
+<body>
+<div class="bd">
+	<div class="logo_tr">
+		电梯运行实时监控系统
+	</div>
+	<div class="set_tr">
+		<ul>
+		<li><a href="index.html">主机配置</a></li>
+            <li><a href="history_list.html">历史故障</a></li>
+            <li><a href="device.html">设备管理</a></li>
+            <li><a href="msgsend.html">报警推送人员</a></li>
+            <li><a href="post.html">推送设定</a></li>
+            <li class="set_tr_li"><a href="#">修改密码</a></li>
+            <li><a href="alipost.html">阿里上报</a></li>
+            <li><a href="othersetting.html">时间设定</a></li>
+		</ul>
+	</div>
+	<!--页码1配置信息-->
+	<div id="page1" class="msg_tr">
+		<div class="uptuser_tb">
+            <div class="uptuser_tb_tr">设备密码</div>
+			<div class="uptuser_tb_tr">
+				<div class="uptuser_tr1">主机登录旧密码</div>
+				<div class="uptuser_tr2">
+					<input type="text" class="msg_txt" id="txt_oldpasd" />
+				</div>
+			</div>
+
+			<div class="uptuser_tb_tr">
+				<div class="uptuser_tr1">主机登录新密码</div>
+				<div class="uptuser_tr2">
+					<input type="text" class="msg_txt" id="txt_newpasd" />
+				</div>
+			</div>
+
+			<div class="uptuser_tb_tr">
+				<div class="uptuser_tr1">重复新密码</div>
+				<div class="uptuser_tr2">
+					<input type="text" class="msg_txt" id="txt_rptpasd" />
+				</div>
+			</div>
+
+			<div class="uptuser_tb_tr">
+				<div class="uptuser_tr3">
+                    <input id="btn_smt" type="button" class="uptuser_btn" value="提交" />
+                </div>
+			</div>
+        </div>
+
+        <div class="uptuser_tb">
+            <div class="uptuser_tb_tr">推送密码</div> 
+            <div class="uptuser_tb_tr">
+                <div class="uptuser_tr1">数据推送旧密码</div>
+                <div class="uptuser_tr2">
+                    <input type="text" class="msg_txt" id="post_oldpasd" />
+                </div>
+            </div>
+    
+            <div class="uptuser_tb_tr">
+                <div class="uptuser_tr1">数据推送新密码</div>
+                <div class="uptuser_tr2">
+                    <input type="text" class="msg_txt" id="post_newpasd" />
+                </div>
+            </div>
+    
+            <div class="uptuser_tb_tr">
+                <div class="uptuser_tr1">重复新密码</div>
+                <div class="uptuser_tr2">
+                    <input type="text" class="msg_txt" id="post_rptpasd" />
+                </div>
+            </div>
+    
+            <div class="uptuser_tb_tr">
+                <div class="uptuser_tr3">
+                    <input id="btn_smt_2" type="button" class="uptuser_btn" value="提交" />
+                </div>
+            </div>
+        </div>
+        
+    </div>
+	<!--页1配置结束-->
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var utUser = null, utPost = null;
+    $(document).ready(function () {
+        $("#btn_smt").click(function () {
+            utUser = new upt_user();
+            utUser.submit();
+        });
+        $("#btn_smt_2").click(function () {
+            utPost = new upt_post();
+            utPost.submit();
+        });
+    });
+
+    /*用户登录信息配置页面类*/
+    function upt_user() {
+        this.obj_oldpasd  = $("#txt_oldpasd");
+        this.obj_newpasd  = $("#txt_newpasd");
+        this.obj_rptpasd  = $("#txt_rptpasd");
+
+        this.val_oldpasd  = null;
+        this.val_newpasd  = null;
+        this.val_rptpasd  = null;
+    }
+
+    /*获取数据*/
+    upt_user.prototype.getData = function () {
+        this.val_oldpasd  = this.obj_oldpasd.val();
+        this.val_newpasd  = this.obj_newpasd.val();
+        this.val_rptpasd  = this.obj_rptpasd.val();
+    }
+
+    /*校验数据是否是否为空*/
+    upt_user.prototype.ckNull = function () {
+        if (this.val_oldpasd  == null || this.val_oldpasd.length <= 0)  { layer.tips("输入不得为空", "#txt_oldpasd"); return false; }
+        if (this.val_newpasd  == null || this.val_newpasd.length <= 0)  { layer.tips("输入不得为空", "#txt_newpasd"); return false; }
+        if (this.val_rptpasd  == null || this.val_rptpasd.length <= 0)  { layer.tips("输入不得为空", "#txt_rptpasd"); return false; }
+        return true;
+    }
+
+    /*校验新密码和重复新密码长度是否在8-16位间*/
+    upt_user.prototype.ckLength = function () {
+        var tmp;
+        tmp = this.val_newpasd.length;
+        if (tmp < 8 || tmp > 16) { layer.tips("长度8~16位", "#txt_newpasd"); return false; }
+
+        tmp = this.val_rptpasd.length;
+        if (tmp < 8 || tmp > 16) { layer.tips("长度8~16位", "#txt_rptpasd"); return false; }
+
+        return true;
+    }
+
+    /*校验新密码和重复新密码为英文和数字及下划线组合*/
+    upt_user.prototype.ckStr = function () {
+        if (!checkUser(this.val_newpasd)) { layer.tips("英文，数字，下划线组合，字母开头", "#txt_newpasd"); return false; }
+        if (!checkUser(this.val_rptpasd)) { layer.tips("英文，数字，下划线组合，字母开头", "#txt_rptpasd"); return false; }
+        return true;
+    }
+
+    /*校验新密码和重复新密码是否一致*/
+    upt_user.prototype.pasdEqual = function () {
+        if (this.val_newpasd  != this.val_rptpasd) { layer.tips("重复新密码与新密码不一致", "#txt_rptpasd"); return false; }
+        return true;
+    }
+
+    /*校验组合*/
+    upt_user.prototype.check = function () {
+        if (!this.ckNull()) return false;
+        if (!this.ckStr()) return false;
+        return true;
+    }
+
+    /*输入清空*/
+    upt_user.prototype.clear = function () {
+        this.obj_oldpasd.val("");
+        this.obj_newpasd.val("");
+        this.obj_rptpasd.val("");
+    }
+
+    /*提交更改信息*/
+    upt_user.prototype.submit = function () {
+        this.getData();
+        if (!this.check()) return; //校验输入
+
+        var postjson = {};
+        postjson.display = 2;
+        postjson.oldpasd = this.val_oldpasd;
+        postjson.newpasd = this.val_newpasd;
+
+        $.post(
+            "cgi-bin/login.cgi",
+            JSON.stringify(postjson),
+            function (data, status) {
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399:
+                       layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+
+                layer.msg("推送密码修改成功");
+                utPost.clear();
+            },
+            "html");
+    }
+
+    /*用户登录信息配置页面类*/
+    function upt_post() {
+
+        this.obj_oldpasd2 = $("#post_oldpasd");
+        this.obj_newpasd2 = $("#post_newpasd");
+        this.obj_rptpasd2 = $("#post_rptpasd");
+
+        this.val_oldpasd2 = null;
+        this.val_newpasd2 = null;
+        this.val_rptpasd2 = null;
+    }
+
+    /*获取数据*/
+    upt_post.prototype.getData = function () {
+        this.val_oldpasd2 = this.obj_oldpasd2.val();
+        this.val_newpasd2 = this.obj_newpasd2.val();
+        this.val_rptpasd2 = this.obj_rptpasd2.val();
+    }
+
+    /*校验数据是否是否为空*/
+    upt_post.prototype.ckNull = function () {
+        if (this.val_oldpasd2 == null || this.val_oldpasd2.length <= 0) { layer.tips("输入不得为空", "#post_oldpasd"); return false; }
+        if (this.val_newpasd2 == null || this.val_newpasd2.length <= 0) { layer.tips("输入不得为空", "#post_newpasd"); return false; }
+        if (this.val_rptpasd2 == null || this.val_rptpasd2.length <= 0) { layer.tips("输入不得为空", "#post_rptpasd"); return false; }
+        return true;
+    }
+
+    /*校验新密码和重复新密码长度是否在8-16位间*/
+    upt_post.prototype.ckLength = function () {
+        var tmp;
+
+        tmp = this.val_newpasd2.length;
+        if (tmp < 4 || tmp > 8) { layer.tips("长度4~8位", "#post_newpasd"); return false; }
+
+        tmp = this.val_rptpasd2.length;
+        if (tmp < 4 || tmp > 8) { layer.tips("长度4~8位", "#post_rptpasd"); return false; }
+
+        return true;
+    }
+
+    /*校验新密码和重复新密码为英文和数字及下划线组合*/
+    upt_post.prototype.ckStr = function () {
+        if (!checkUser(this.val_newpasd2)) { layer.tips("英文，数字，下划线组合，字母开头", "#post_newpasd"); return false; }
+        if (!checkUser(this.val_rptpasd2)) { layer.tips("英文，数字，下划线组合，字母开头", "#post_rptpasd"); return false; }
+        return true;
+    }
+
+    /*校验新密码和重复新密码是否一致*/
+    upt_post.prototype.pasdEqual = function () {
+        if (this.val_newpasd2 != this.val_rptpasd2) { layer.tips("重复新密码与新密码不一致", "#post_rptpasd"); return false; }
+        return true;
+    }
+
+    /*校验组合*/
+    upt_post.prototype.check = function () {
+        if (!this.ckLength()) return false;
+        if (!this.pasdEqual()) return false;
+        return true;
+    }
+
+    /*输入清空*/
+    upt_post.prototype.clear = function () {
+        this.obj_oldpasd2.val("");
+        this.obj_newpasd2.val("");
+        this.obj_rptpasd2.val("");
+    }
+
+    /*提交更改信息*/
+    upt_post.prototype.submit = function () {
+        this.getData();
+        if (!this.check()) return; //校验输入
+
+        var postjson = {};
+        postjson.display = 8;
+        postjson.oldpasd2 = this.val_oldpasd2;
+        postjson.newpasd2 = this.val_newpasd2;
+
+        $.post(
+            "cgi-bin/index.cgi",
+            JSON.stringify(postjson),
+            function (data, status) {
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                switch (parseInt(temp.error)) {
+                    case 399:
+                       layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+
+                layer.msg("推送密码修改成功");
+                utPost.clear();
+            },
+            "html");
+    }
+
+</script>

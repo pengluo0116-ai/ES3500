@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link href="css/css.css" rel="stylesheet" type="text/css" />
+        <script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+        <script src="js/JS.js" type="text/javascript"></script>
+        <script src="js/js_display.js" type="text/javascript"></script>
+        <!--[if lt IE 9]>
+            <script src="js/json/json2.js" type="text/javascript"></script>
+        <![endif]-->
+        <script src="js/layer/layer.js" type="text/javascript"></script>
+        <script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+        <style type="text/css">
+            .msg_tr { height:auto; padding-bottom: 20px;}
+        </style>
+        <title>实时数据转发</title>
+    </head>
+    <body>
+        <div class="bd">
+	        <div class="logo_tr">
+		        电梯运行实时监控系统
+	        </div>
+	        <div class="set_tr">
+		        <ul>
+			        <li><a href="index.html">主机配置</a></li>
+                    <li><a href="history_list.html">历史故障</a></li>
+                    <li><a href="device.html">设备管理</a></li>
+                    <li><a href="msgsend.html">报警推送人员</a></li>
+			        <li class="set_tr_li"><a href="#">推送设定</a></li>
+                    <li><a href="updateuser.html">修改密码</a></li>
+                    <li><a href="alipost.html">阿里上报</a></li>
+                    <li><a href="othersetting.html">时间设定</a></li>
+		        </ul>
+	        </div>
+
+            <!--页面开始-->
+            <div id="page1" class="msg_tr" >
+                <div class="msg_tb" style="width: 718px; margin-top: 20px; line-height:36px; height: 36px; text-indent: 10px; font-weight: bolder; background-color: #D1D1D1">接收服务器配置</div>
+                <table id="svr_cnf" class="post_tb" border="0" cellpadding="0" cellspacing="0" >
+                    <tr>
+                        <td class="post_td1">转发状态</td>
+                        <td colspan="3" class="post_td4">
+                            <div class="post_xy"><label><input name="post_enable" type="radio" value="0" checked="true" />禁用转发</label></div>
+                            <div class="post_xy"><label><input name="post_enable" type="radio" value="1" />开启转发</label></div> 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="post_td1">发送协议</td>
+                        <td colspan="3" class="post_td4">
+                            <div class="post_xy"><label><input name="post_type" type="radio" value="0" checked="true" />HTTP协议</label></div>
+                            <div class="post_xy"><label><input name="post_type" type="radio" value="1" />TCP长连接</label></div> 
+                            <div class="post_xy"><label><input name="post_type" type="radio" value="2" />TCP短连接</label></div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="post_td1">服务器IP</td>
+                        <td class="post_td2"><input type="text" id="sip" /></td>
+                        <td class="post_td1">服务器端口</td>
+                        <td class="post_td3"><input type="text" id="sport" /></td>
+                    </tr>
+                </table>
+                
+                <center>
+                    <input type="button" value="提交配置信息" id="btn_test" style="margin-top: 20px;" onclick="post_submit()" />
+                </center>
+
+                <!-- 设定主机是否开启digest认证 -->
+                <div class="msg_tb" style="width: 718px; margin-top: 20px; line-height:36px; height: 36px; text-indent: 10px; font-weight: bolder; background-color: #D1D1D1">digest认证设定</div>
+                <table id="digest_conf" class="post_tb" border="0" cellpadding="0" cellspacing="0" >
+                    <tr>
+                        <td class="post_td1">digest设定</td>
+                        <td colspan="3" class="post_td4">
+                            <div class="post_xy"><label><input name="digest_enable" type="radio" value="0" checked="true" />禁用digest</label></div>
+                            <div class="post_xy"><label><input name="digest_enable" type="radio" value="1" />开启digest</label></div> 
+                        </td>
+                    </tr>
+                </table>
+                
+                <center>
+                    <input type="button" value="提交配置信息" id="btn_test" style="margin-top: 20px;" onclick="digest_submit()" />
+                </center>
+            </div>
+           
+        </div>
+    </body>
+</html>
+
+<script type="text/javascript">
+    
+    var postConf_info = null;
+    $(document).ready(function(){
+        postConf_info = new postConf();
+        postConf_info.getConf();
+        getDigestConf();
+    });
+    
+    function post_submit(){
+        postConf_info.updateConf();
+    }
+    
+    /*配置信息处理类*/
+    function postConf(){
+        this.server_ip = null;      //服务器IP
+        this.server_port = null;    //服务器端口
+        this.post_type = null;      //发送协议
+        this.post_enable = null;    //转发使能
+    }
+    
+    /*根据类对象中的数值，显示到页面上*/
+    function confShow(_postConf){
+        if(_postConf == null) return;
+        
+        $("#sip").val(_postConf.server_ip);
+        $("#sport").val(_postConf.server_port);
+        
+        switch(~~_postConf.post_type){
+            case 0: $('input:radio[name=post_type][value="0"]').attr("checked", true); break;
+            case 1: $('input:radio[name=post_type][value="1"]').attr("checked", true); break;
+            case 2: $('input:radio[name=post_type][value="2"]').attr("checked", true); break;
+            default: layer.alert("配置数据有误"); return false;
+        }
+        
+        switch(~~_postConf.post_enable){
+            case 0: $('input:radio[name=post_enable][value="0"]').attr("checked", true); break;
+            case 1: $('input:radio[name=post_enable][value="1"]').attr("checked", true); break;
+            default: layer.alert("配置数据有误"); return false;
+        }
+        
+        return true;
+    }
+    
+    /*获取配置信息-类函数*/
+    postConf.prototype.getConf = function(){
+        var postjson = {};
+        postjson.display = 1;
+        
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/post.cgi",
+            JSON.stringify(postjson),
+            function(data, status){
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+
+                switch (parseInt(temp.error)) {
+                    case 399:
+                        layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+                
+                /*获取成功*/
+                postConf_info.server_ip = temp.ip;
+                postConf_info.server_port = temp.port;
+                postConf_info.post_type = temp.post_type;
+                postConf_info.post_enable = temp.iswork;
+                
+                confShow(postConf_info);
+        });
+    }
+    
+    /*配置信息提交前的校验-使能时的校验*/
+    postConf.prototype.postCheck_enable = function(){
+        var tmp = "";
+        
+        var tmp;
+        tmp = trimStr($("#sip").val());
+        if(tmp==null || tmp.length <= 0x00){ layer.tips("输入为空", "#sip"); return false; }
+        if(!isIP(tmp)){ layer.tips("ip地址不合法", "#sip"); return false; }
+        this.server_ip = tmp;
+        
+        tmp = trimStr($("#sport").val());
+        if(tmp==null || tmp.length <= 0x00){ layer.tips("输入为空", "#sport"); return false; }
+        if(isNaN(tmp)){ layer.tips("端口应为数字", "#sport"); return false; }
+        if(~~tmp<=0){ layer.tips("应该大于0", "#sport"); return false; }
+        this.server_port = ~~tmp;
+        
+        tmp = trimStr($('input:radio[name=post_type][checked]').val());
+        this.post_type = ~~tmp;
+        
+        return true;
+    }
+    
+    /*配置信息提交前的校验-禁用时的校验*/
+    postConf.prototype.postCheck_disable = function(){
+        var tmp = "";
+        
+        var tmp;
+        tmp = trimStr($("#sip").val());
+        if(tmp==null || tmp.length <= 0x00){ this.server_ip = ""; }
+        else if(!isIP(tmp)){ this.server_ip = ""; }
+        else this.server_ip = tmp;
+        
+        tmp = trimStr($("#sport").val());
+        if(tmp==null || tmp.length <= 0x00){ this.server_port =  0; }
+        else if(isNaN(tmp)){ this.server_port =  0; }
+        else this.server_port = ~~tmp;
+        
+        tmp = trimStr($('input:radio[name=post_type][checked]').val());
+        this.post_type = ~~tmp;
+        
+        return true;
+    }
+    
+    /*配置信息提交前的校验*/
+    postConf.prototype.postCheck = function(){
+        this.post_enable = ~~trimStr($('input:radio[name=post_enable][checked]').val()); 
+        switch(~~this.post_enable){
+            case 0: return this.postCheck_disable(); break;
+            case 1: return this.postCheck_enable(); break;
+        }
+        
+        return false;
+    }
+    
+    /*更新配置信息*/
+    postConf.prototype.updateConf = function(){
+        if(!this.postCheck()) return;
+        
+        var postjson = {};
+        postjson.display = 2;
+        postjson.ip = this.server_ip;
+        postjson.port = ~~this.server_port;
+        postjson.post_type = ~~this.post_type;
+        postjson.iswork = ~~this.post_enable;
+        
+        var _load = layer.load();
+        $.post(
+            "cgi-bin/post.cgi",
+            JSON.stringify(postjson),
+            function(data, status){
+                layer.close(_load);
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+
+                switch (parseInt(temp.error)) {
+                    case 399:
+                        layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html'; }); return;
+                    case 0: break;
+                    default: layer.alert(temp.data); return;
+                }
+                
+                layer.msg("更新成功");
+        });
+    }
+
+    function getDigestConf()
+    {
+        var postjson = {};
+        postjson.display = 5;
+        
+        var _load = layer.load();
+        $.post
+        (
+            "cgi-bin/post.cgi",
+            JSON.stringify(postjson),
+            function(data,status)
+            {
+                layer.close(_load);
+                if (status != "success")
+                {
+                    layer.alert("链接服务器失败！！");
+                    return ;
+                }
+                var tmp = eval('(' + data + ')');
+                switch (parseInt(tmp.error))
+                {
+                    case 399: layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html';}); return ;
+                    case 0: break;
+                    default:layer.alert(tmp.data); return ;
+                }
+                /*数据写入*/
+                switch(~~tmp.isDigest){
+                    case 0: $('input:radio[name=digest_enable][value="0"]').attr("checked", true); break;
+                    case 1: $('input:radio[name=digest_enable][value="1"]').attr("checked", true); break;
+                    default: layer.alert("配置数据有误"); return false;
+                }
+            }
+        );
+    }
+
+    /*设定digest认证*/
+    function digest_submit()
+    {
+        var postjson = {};
+        postjson.display = 6;
+        postjson.isDigest = ~~trimStr($('input:radio[name=digest_enable][checked]').val());
+
+        var _load = layer.load();
+        $.post
+        (
+            "cgi-bin/post.cgi",
+            JSON.stringify(postjson),
+            function(data,status)
+            {
+                layer.close(_load);
+                if (status != "success")
+                {
+                    layer.alert("链接服务器失败！！");
+                    return ;
+                }
+                var tmp = eval('(' + data + ')');
+                switch (parseInt(tmp.error))
+                {
+                    case 399: layer.alert("操作失败，登录超时", function (_index) { location.href = 'login.html';}); return ;
+                    case 0: break;
+                    default:layer.alert(tmp.data); return ;
+                }
+                layer.msg("更新成功,重启设备后生效!!");
+            }
+        );
+    }
+    
+</script>

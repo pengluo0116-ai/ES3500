@@ -1,0 +1,206 @@
+#include "obj_web.h"
+#include "real_cont.h"
+using namespace std;
+
+#define DEBUG 1
+
+/*
+    函数名称：obj_web
+    函数功能：构造函数
+    传入参数：
+                const char *_url        访问URL
+                QWidget *_parent        父控件指针
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-17
+*/
+obj_web::obj_web(const char *_url, QWidget *_parent):QWebView(_parent){
+    this->url = QString(_url);
+    this->liftInfo_bak = "";
+    this->liftInfo_rel = "";
+}
+
+/*
+    函数名称：~obj_web
+    函数功能：析构函数
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-17
+*/
+obj_web::~obj_web(){}
+
+/*
+    函数名称：init
+    函数功能：初始化
+    传入参数：无
+    传出数据：
+                 0  运行正确
+                -1  url为空
+                -2  获取前端句柄失败
+    注意事项：该类生产对象后，需要先执行此函数后才能进行其它操作
+    编写人员：王凤龙
+    编写时间：2017-05-17
+*/
+int obj_web::init(){
+    /*参数校验*/
+    if(this->url.isEmpty()) return -0x01;
+
+    /*加载网页*/
+    this->load(QUrl(this->url));
+
+    /*获取前端句柄*/
+    this->webFrame = this->page()->mainFrame();
+    if(!this->webFrame) return -0x02;
+
+    /*绑定前端调用*/
+    QObject::connect(this->webFrame, SIGNAL(javaScriptWindowObjectCleared()), this, SLOT(web_window_connect()));
+    
+    /*将本对象关联到实时处理*/
+    real_cont::set_objTitle(this);
+
+    return 0x00;
+}
+
+/*
+    函数名称：reload_url
+    函数功能：重新加载指定的页面
+    传入参数：const char *_url
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-17
+*/
+int obj_web::reload_url(const char *_url){
+    /*参数校验*/
+    if(!_url || strlen(_url)<=0x00) return -0x01;
+    
+    this->url = QString(_url);
+    return 0x00;
+}
+
+/*
+    函数名称：reload_url
+    函数功能：重新加载页面
+    传入参数：无
+    传出数据：保留 0
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-27
+*/
+int obj_web::reload_url(){
+    this->reload();
+    return 0x00;
+}
+
+/*
+    函数名称：web_window_connect
+    函数功能：关联前后台
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+void obj_web::web_window_connect(){
+    this->webFrame->addToJavaScriptWindowObject(QString("mywebkit"), this);
+}
+
+// 打开语音
+int obj_web::open_radio() {
+    radio::ON();
+    return 0;
+}
+
+// 关闭语音
+int obj_web::close_radio() {
+    radio::OFF();
+    return 0;
+}
+
+// 从real_cont中获取设备统计信息
+int obj_web::status(unsigned short _devAll, unsigned short _devOnline, unsigned short _devAlarm){
+    this->dev_all = _devAll;
+    this->dev_online = _devOnline;
+    this->dev_alarm = _devAlarm;
+    return 0x00;
+}
+
+// 获取设备总数记录
+unsigned short obj_web::get_devAll() {
+    return this->dev_all;
+}                   
+
+// 获取在线设备数记录
+unsigned short obj_web::get_devOnline() {
+    return this->dev_online;
+}                           
+
+// 获取故障设备树记录
+unsigned short obj_web::get_devAlarm() {
+    return this->dev_alarm;
+}                                              
+
+/*
+    函数名称：get_realData
+    函数功能：获取电梯实时数据
+    传入参数：无
+    传出数据：QString 电梯实时数据json格式字符串
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-26
+*/
+QString obj_web::get_realData(){
+    Json::Value jsonRes;
+    string jsonReal_str = "";
+
+    /*获取实时数据--json格式*/
+    if(real_cont::getStr_real_All(jsonReal_str)){
+        jsonRes["error"] = 404;
+        jsonRes["data"] = "获取实时数据失败";
+        this->response = JWriter.write(jsonRes);
+        return this->response.c_str(); 
+    }
+
+   /*获取当前时间*/
+    string nowDate;
+    cpp_datetimer::nowToString(nowDate);
+    jsonRes["error"] = 0x00;
+    jsonRes["datetime"] = nowDate;
+    jsonRes["data"] = jsonReal_str;
+    this->response = JWriter.write(jsonRes);
+    return this->response.c_str();
+}
+
+/*
+    函数名称：checkUpdata_liftInfo
+    函数功能：检测设备属性信息列表是否更换
+    传入参数：无
+    传出数据："1" 更换 "0" 未更换
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-05-27
+*/
+QString obj_web::checkUpdata_liftInfo(){
+    /*获取设备信息*/
+    if(real_cont::getStr_devInfo_All(this->liftInfo_rel)){ return "0"; }
+
+    /*检测实时数据是否为空*/
+    if(this->liftInfo_rel == ""){ return "0"; }
+    
+    /*检测设备信息是否为空*/
+    if(this->liftInfo_bak == ""){ this->liftInfo_bak = this->liftInfo_rel; return "0"; }
+
+    /*检测设备信息是否一致*/
+    if(this->liftInfo_bak == this->liftInfo_rel){ return "0"; }
+
+    /*更新设备信息*/
+    this->liftInfo_bak = this->liftInfo_rel; return "1";
+}
+
+QString obj_web::get_liftReal(){
+    cout<< "开始获取数据" <<endl;
+    return "";   
+}

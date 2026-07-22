@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link href="css/css.css" rel="stylesheet" type="text/css" />
+        <script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+        <script src="js/JS.js" type="text/javascript"></script>
+        <script src="js/js_display.js" type="text/javascript"></script>
+        <!--[if lt IE 9]>
+            <script src="js/json/json2.js" type="text/javascript"></script>
+        <![endif]-->
+        <script src="js/layer/layer.js" type="text/javascript"></script>
+        <script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+    </head>
+    <body>
+        <input type="hidden" id="hd_addr" />
+        <div style="width:430px; margin-left:auto; margin-right:auto; text-align:center; line-height:30px;">
+            <!--二维码-->
+            <div id="dv_img">
+                <img id="img_qrcode" />
+                <div id="dv_time">倒计时：</div>
+            </div>
+        </div>
+    </body>
+</html>
+
+<script type="text/javascript">
+    
+    $(document).ready(function(){
+        getQrcode();
+    });
+    
+    /*获取qrcode*/
+    function getQrcode() { 
+        var postjson = {};
+        var uid = getQueryString("uid");
+        var name = $("#txt_name_"+uid, window.parent.document).val();
+        postjson.display = 1;
+        postjson.name = encodeURI(name); 
+        //在此写入你要提交的数据       
+        $.post(
+           "cgi-bin/qrcode.cgi",
+
+           JSON.stringify(postjson),
+
+           function (data, status) {
+               if (status != "success") { alert("连接服务器失败"); return; }
+               var temp = eval('(' + data + ')')
+               if (parseInt(temp.error) != 0) { alert(temp.data); return; }
+               //在此写入你要处理的操作
+               $("#img_qrcode").attr("src", "https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=" + temp.data);
+               $("#hd_addr").val(temp.addr);
+               getCherk();
+               getTimeout();
+           });
+    }
+    
+    function getCherk() {
+        var postjson = {};
+        postjson.display = 2;
+        postjson.data = $("#hd_addr").val();
+        //在此写入你要提交的数据       
+        $.post(
+            "cgi-bin/qrcode.cgi",
+           JSON.stringify(postjson),
+           function (data, status) {
+               if (status != "success") { alert("连接服务器失败"); return; }
+               var temp = eval('(' + data + ')')
+               if (parseInt(temp.error) != 0) { alert(temp.data); return; }
+               //在此写入你要处理的操作
+               if (temp.data != "") {
+                   $("#" + getQueryString("txt"), window.parent.document).val(temp.data);
+                   window.parent.layer.closeAll();
+                   return;
+               }
+
+               setTimeout("getCherk()", 1000);
+           });
+    }
+
+    var timeout = 120;
+    function getTimeout() {
+        $("#dv_time").html("倒计时:" + timeout);
+        if (timeout <= 0) {
+            window.parent.layer.closeAll();
+            return;
+        }
+        timeout--;
+        setTimeout("getTimeout()", 1000);
+    }
+</script>

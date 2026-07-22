@@ -1,0 +1,148 @@
+#include "task_manager.h"
+using namespace std;
+#define DEBUG 1
+
+std::vector<task *> task_manager::task_vct;
+
+/*
+    函数名称：init
+    函数功能：初始化函数
+    传入参数：无
+    传出数据：默认 0
+    注意事项：运行该类的其它函数前，需要先运行此函数
+    编写人员：王凤龙
+    编写时间：2016-08-29
+*/
+int task_manager::init(){
+    /*NGINX服务器*/
+    task *nginx_task = new task(NGIGX_NAME, NGINX_PATH, NGINX_CONF, 10, 2);
+    task_manager::task_vct.push_back(nginx_task);
+
+    /*阿里上报*/
+    task *ali_post = new task(ALIPOST_NAME, ALIPOST_PATH, ALIPOST_CONF, 10, 2);
+    task_manager::task_vct.push_back(ali_post);
+
+    /*web服务器*/
+    task_web *web_task = new task_web();
+    task_manager::task_vct.push_back(web_task);
+
+    /*MQTT服务器*/
+    task_mqttServer *mqttserver_task = new task_mqttServer(MQTTSERVER_NAME, MQTTSERVER_PATH, MQTTSERVER_CONF, 10, 2);
+    task_manager::task_vct.push_back(mqttserver_task);
+
+    /*REDIS服务器*/
+    task_redis *redisserver_task = new task_redis(REDIS_NAME, REDIS_PATH, REDIS_CONF, 10, 2);
+    task_manager::task_vct.push_back(redisserver_task);
+
+    /*转发采集器采集器*/
+    task *collecter_task = new task(COLECTER_NAME, COLECTER_PATH, COLECTER_CONF, 10, 2);
+    task_manager::task_vct.push_back(collecter_task);
+
+    /*底层采集器*/
+    task_uwsgi *uwsgi_task = new task_uwsgi(DEV_COLECTER_NAME, DEV_COLECTER_PATH, DEV_COLECTER_CONF, 10, 2);
+    task_manager::task_vct.push_back(uwsgi_task);
+
+    /*实时处理模块*/
+    task *realcont_task = new task(REALCONT_NAME, REALCONT_PATH, REALCONT_CONF, 10, 2);
+    task_manager::task_vct.push_back(realcont_task);
+
+    /*报警信息处理模块*/
+    task *alarmcont_task = new task(ALARMCONT_NAME, ALARMCONT_PATH, ALARMCONT_CONF, 10, 2);
+    task_manager::task_vct.push_back(alarmcont_task);
+
+    /*REDIS缓存监控模块*/
+    task *credis_ck_task = new task(CREDIS_CK_NAME, CREDIS_CK_PATH, CREDIS_CK_CONF, 10, 2);
+    task_manager::task_vct.push_back(credis_ck_task);
+
+    /*实时展示页面*/
+    task_qt *qt_task = new task_qt(QT_REAL_SHOW_NAME, QT_REAL_SHOW_PATH, QT_REAL_SHOW_CONF, 10, 2);
+    task_manager::task_vct.push_back(qt_task);
+
+    /*百度语音实时更新模块*/
+    task *baiduTts_task = new task(BAIDUTTS_UPDATE_NAME, BAIDUTTS_UPDATE_PATH, BAIDUTTS_UPDATE_CONF, 10, 2);
+    task_manager::task_vct.push_back(baiduTts_task);
+
+    /*搜索软件*/
+    task_udpserver *udpServer_task = new task_udpserver(UDPSERVER_NAME, UDPSERVER_PATH, "", 10, 0);
+    task_manager::task_vct.push_back(udpServer_task);
+
+    return 0x00;
+}
+
+/*
+    函数名称：thread_work
+    函数功能：开启监控各个子进程的线程
+    传入参数：void *argvs 
+    传出数据：无
+    注意事项：void *argvs为各个task对象的指针
+    编写人员：王凤龙
+    编写时间：2016-08-29
+*/
+void* task_manager::thread_work(void *argvs){
+    pthread_detach(pthread_self());
+
+    /*校验输入参数*/
+    if(argvs == (void *)0x00){
+        #if DEBUG
+        cout<<"线程：传入参数为空"<<endl;
+        #endif
+        return NULL;
+    }
+
+    /*开始工作*/
+    task *_task_ = (task *)argvs;
+    _task_->run();
+    
+    #if DEBUG
+    cout<<"线程退出"<<endl;
+    #endif
+    exit(1);
+    return NULL;
+}
+
+/*
+    函数名称：work
+    函数功能：进程管理开启工作
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2016-08-29
+*/
+int task_manager::work(){
+    /*校验注册的任务*/
+    if(task_manager::task_vct.size() <= 0x00){
+        #if DEBUG
+        cout<<"未指定进程任务"<<endl;
+        #endif
+        exit(1);
+    }
+
+    /*开启进程任务*/
+    pthread_t ptmp;
+    for(int i=0x00; i<task_manager::task_vct.size(); i++){
+        if((*(task_manager::task_vct.begin() + i))->task_name == string(UDPSERVER_NAME)){ for(;;){ sleep(1); if(getPidByName(WEB_NAME) > 0x00){ sleep(5); break; } } }
+        pthread_create(&ptmp, NULL, task_manager::thread_work, (void *)*(task_manager::task_vct.begin() + i));
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：getPidByName
+    函数功能：根据任务名称获取进程号
+    传入参数：const char *pName  任务名称
+    传出数据：
+                大于0 获取成功，返回的为进程的ID
+                <= 0  获取失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2016-08-29
+*/
+int task_manager::getPidByName(const char *pName){
+    int pid = 0;
+    for(int i=0x00; i<task_manager::task_vct.size(); i++ ){
+        if((*(task_manager::task_vct.begin() + i))->task_name == string(pName)){ pid = (int)(*(task_manager::task_vct.begin() + i))->get_task_pid(); break; }
+    }
+    return pid;
+}

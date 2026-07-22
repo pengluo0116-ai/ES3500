@@ -1,0 +1,32 @@
+﻿body {
+    width:100%;
+    background-color:#E7E8EB;
+    margin:0;
+    font-family:微软雅黑;
+}
+
+a{ text-decoration:none;}
+
+/*头部导航*/
+.head_by{ width:100%; height:67px; background-image:url(../image/unireg_head.png); background-repeat:repeat-x; margin-bottom:0px; }
+
+/*网页体*/
+.body_by{ width:1200px; margin:30px auto 90px auto; border:1px solid #D9DADC; background-color:#FFFFFF; }
+
+/*页脚*/
+.foot_by{ width:100%; height:66px; background-color:#B8B9B9;  margin-bottom:0px;}
+
+/*标题*/
+.zc_title{ width:100%; height:50px; margin:0; background-color:#E7E8EB; line-height:50px; text-indent:30px;}
+
+/*内容体*/
+.zc_by{ width:100%; margin:10px auto 10px auto; overflow:hidden; font-size:14px; }
+
+/*数据列表*/
+.utb{ width:1180px;  border:1px solid #D9DADC; border-right-width:0; border-bottom-width:0; margin:auto; }
+.utb tr{ height:30px; line-height:30px; text-align:left; text-indent:10px; }
+.utb td{  border:1px solid #D9DADC; border-left-width:0; border-top-width:0; }
+.utb_td1{ width:199px; }
+.utb_td2{ width:199px; }
+.utb_td3{ width:199px; }
+.utb_td4{ width:579px; }

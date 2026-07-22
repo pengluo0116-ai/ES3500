@@ -1,0 +1,493 @@
+#include "Manager.h"
+using namespace std;
+#define DEBUG 1
+
+/*
+    函数名称：Manager
+    函数功能：构造函数
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：
+*/
+Manager::Manager(){
+
+}
+
+/*
+    函数名称：~Manager
+    函数功能：析构函数
+    传入参数：无
+    传出数据：无
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：
+*/
+Manager::~Manager(){
+
+}
+
+/*
+    函数名称：_get_liftList_f_db
+    函数功能：从数据库中获取设备属性信息
+    传入参数：无
+    传出数据：
+                 0  运行成功
+                -1  获取设备信息失败
+                -2  获取组信息失败
+                -3  创建缓存设备信息失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-02
+*/
+int Manager::_get_liftList_f_db(){
+    this->jsonGroupList_db.clear();
+    this->jsonLiftList_db.clear();
+
+    /*获取设备信息*/
+    if(get_device_all(this->jsonLiftList_db)) return -0x01;
+
+    /*获取组信息*/
+    if(get_group_All(this->jsonGroupList_db)) return -0x02;
+
+    /*组装成完整设备缓存信息*/
+    if(dev_create_info(this->jsonLiftList_db, this->jsonGroupList_db)) return -0x03;
+
+    Json::FastWriter w;
+    cout << w.write(this->jsonLiftList_db) << endl;
+    cout << w.write(this->jsonGroupList_db) << endl;
+    return 0x00;
+}
+
+/*
+    函数名称：_get_liftList_f_redis
+    函数功能：从REDIS中获取设备属性信息
+    传入参数：无
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-02
+*/
+int Manager::_get_liftList_f_redis(){
+    this->jsonListList_redis.clear();
+
+    redis_cont rclient(REDIS_SERVER_ADDR, REDIS_SERVER_PORT, REDIS_SERVER_PASD);
+    if(rclient.init()) return -0x01;
+
+    if(rclient.devInfo_getAll(this->jsonListList_redis) < 0x00) return -0x02;
+
+    return 0x00;
+}
+
+/*
+    函数名称：_get_lift_f_dblist_byID
+    函数功能：根据设备ID，从数据库Json列表中获取设备信息
+    传入参数：
+                const char *ID          设备ID
+                Json::Value &jsonInfo   获取到的设备信息存储到该引用指向的存储空间
+    传出数据：
+                 0  未获取到设备信息
+                 1  获取到设备信息
+                -1  运行有误
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_get_lift_f_dblist_byID(const char *ID, Json::Value &jsonInfo){
+    /*参数校验*/
+    if(!ID || strlen(ID)<=0x00) return -0x01;
+
+    /*获取数据*/
+    for(unsigned int i=0x00; i<this->jsonLiftList_db.size(); i++){
+        if(this->jsonLiftList_db[i]["id"].asString() != string(ID)) continue;
+
+        jsonInfo.clear();
+        jsonInfo = this->jsonLiftList_db[i];
+        return 0x01;
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_get_lift_f_rdlist_byID
+    函数功能：根据设备ID，从REDIS缓存Json列表中获取设备信息
+    传入参数：
+                const char *ID          设备ID
+                Json::Value &jsonInfo   获取到的数据存储到该引用指向的存储空间
+    传出数据：
+                 0  未获取到设备信息
+                 1  获取到设备信息
+                -1  运行有误
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_get_lift_f_rdlist_byID(const char *ID, Json::Value &jsonInfo){
+    /*参数校验*/
+    if(!ID || strlen(ID)<=0x00) return -0x01;
+
+    /*获取数据*/
+    for(unsigned int i=0x00; i<this->jsonListList_redis.size(); i++){
+        if(this->jsonListList_redis[i]["id"].asString() != string(ID)) continue;
+
+        jsonInfo.clear();
+        jsonInfo = this->jsonListList_redis[i];
+        return 0x01;
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_find_lift_f_dblist_byID
+    函数功能：根据设备ID，查看数据Json列表中是否存该设备
+    传入参数：const char *ID 设备ID
+    传出数据：0 不存在 1 多余 -1 运行有误
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_find_lift_f_dblist_byID(const char *ID){
+    /*参数校验*/
+    if(!ID || strlen(ID)<=0x00) return -0x01;
+
+    /*检测设备*/
+    for(unsigned int i=0x00; i<this->jsonLiftList_db.size(); i++){
+        if(this->jsonLiftList_db[i]["id"].asString() != string(ID)) continue;
+
+        return 0x01;
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_find_lift_f_rdlist_byID
+    函数功能：根据设备ID，查看AEDIS缓存Json列表中是否存在该设备
+    传入参数：const char *ID 设备ID
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_find_lift_f_rdlist_byID(const char *ID){
+    /*参数校验*/
+    if(!ID || strlen(ID)<=0x00) return -0x01;
+
+    /*检测设备*/
+    for(unsigned int i=0x00; i<this->jsonListList_redis.size(); i++){
+        if(this->jsonListList_redis[i]["id"].asString() != string(ID)) continue;
+
+        return 0x01;
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_get_loseLiftList
+    函数功能：获取REDIS中多余设备属性列表
+    传入参数：Json::Value &jsonList  获取到的数据存储到该引用指向的存储空间
+    传出数据：
+    注意事项：执行该函数前，需要确定已经成功运行了函数_get_liftList_f_db，_get_liftList_f_redis
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_get_loseLiftList(Json::Value &jsonList){
+    jsonList.clear();
+
+    for(unsigned int i=0x00; i<this->jsonListList_redis.size(); i++){
+        switch(this->_find_lift_f_dblist_byID(this->jsonListList_redis[i]["id"].asString().c_str())){
+            case  0 : jsonList.append(this->jsonListList_redis[i]); break;
+            case  1 : 
+            case -1 :
+            default : break;
+        } 
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_get_newLiftList
+    函数功能：获取REDIS中未添加的设备
+    传入参数：Json::Value &jsonList  获取到的数据存储到该引用指向的存储空间
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_get_newLiftList(Json::Value &jsonList){
+    jsonList.clear();
+
+    for(unsigned int i=0x00; i<this->jsonLiftList_db.size(); i++){
+        switch(this->_find_lift_f_rdlist_byID(this->jsonLiftList_db[i]["id"].asString().c_str())){
+            case  0 : jsonList.append(this->jsonLiftList_db[i]);
+            case  1 :
+            case -1 :
+            default : break;
+        }
+    }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_del_loseListList
+    函数功能：从REDIS中删除多余的设备属性信息
+    传入参数：Josn::Value jsonList   多余的设备属性信息
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_del_loseListList(Json::Value &jsonList){
+    if(redis_devListDel(jsonList)) return -0x01;
+
+    return 0x00;
+}
+
+/*
+    函数名称：_add_newLiftList
+    函数功能：向REDIS中添加设备信息
+    传入参数：无
+    传出数据：0 运行成功 非0 运行失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_add_newLiftList(Json::Value &jsonList){
+    if(cmd_device_redisUpdate(jsonList)) return -0x01;
+
+    return 0x00;
+}
+
+/*
+    函数名称：_check_liftInfo_db_rd
+    函数功能：检测数据库列表中的某台设备属性和REDIS中对应设备属性是否一致
+    传入参数：
+                Json::Value &jsonInfo_db    数据库列表中某台设备的属性
+                Json::Value &jsonInfo_rd    REDIS列表中某台设备的属性
+    传出数据：0 一致 1 不一致
+    注意事项：执行前，需要确定数据库和缓存设备数量同步完成
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_check_liftInfo_db_rd(Json::Value &jsonInfo_db, Json::Value &jsonInfo_rd){
+    if(jsonInfo_db["id"].asString() != jsonInfo_rd["id"].asString()) return -0x01;
+
+    try{
+        if(
+            jsonInfo_db["dev_name"].asString()      != jsonInfo_rd["dev_name"].asString()       ||
+            jsonInfo_db["address"].asString()       != jsonInfo_rd["address"].asString()        ||
+            jsonInfo_db["gid"].asInt()              != jsonInfo_rd["gid"].asInt()               ||
+            jsonInfo_db["madein"].asString()        != jsonInfo_rd["madein"].asString()         ||
+            jsonInfo_db["mainter"].asString()       != jsonInfo_rd["mainter"].asString()        ||
+            jsonInfo_db["mainter_tel"].asString()   != jsonInfo_rd["mainter_tel"].asString()    ||
+            jsonInfo_db["mainter_time"].asString()  != jsonInfo_rd["mainter_tel"].asString()    ||
+            jsonInfo_db["mainter_period"].asString()!= jsonInfo_rd["mainter_tel"].asString()    ||
+            jsonInfo_db["gname"].asString()         != jsonInfo_rd["gname"].asString()          ||
+            jsonInfo_db["note"].asString()          != jsonInfo_rd["note"].asString()           ||
+            jsonInfo_db["pgid"].asInt()             != jsonInfo_rd["pgid"].asInt()              ||
+            jsonInfo_db["pgname"].asString()        != jsonInfo_rd["pgname"].asString()         ||
+            jsonInfo_db["property"].asString()      != jsonInfo_rd["property"].asString()       ||
+            jsonInfo_db["url"].asString()           != jsonInfo_rd["url"].asString()            ||
+            jsonInfo_db["x"].asInt()                != jsonInfo_rd["x"].asInt()                 ||
+            jsonInfo_db["y"].asInt()                != jsonInfo_rd["y"].asInt() 
+        ){ 
+            #if DEBUG
+            cout<< "数据库信息：" << this->JWriter.write(jsonInfo_db) <<endl;
+            cout<< "REDIS信息：" << this->JWriter.write(jsonInfo_rd) << endl;
+            cout<< "设备不一致：" << jsonInfo_db["dev_name"].asString() <<endl;
+            #endif
+
+            return 0x01;
+        }
+    }catch(...){ return 0x01; }
+
+    return 0x00;
+}
+
+/*
+    函数名称：_getInfo
+    函数功能：获取设备属性信息
+    传入参数：无
+    传出数据：
+                 0  运行成功
+                -1  获取数据库设备信息失败
+                -2  获取REDIS设备信息失败
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_getInfo(){
+    /*获取数据库设备信息*/
+    if(this->_get_liftList_f_db()) return -0x01;
+
+    /*获取REDIS设备信息*/
+    if(this->_get_liftList_f_redis()) return -0x02;
+
+    return 0x00;
+}
+
+/*
+    函数名称：_update_liftInfo
+    函数功能：获取修改过属性的设备，并且更新到REDIS
+    传入参数：无
+    传出数据：
+                 0  运行成功
+                -1  从REDIS中获取设备信息失败
+                -2  修改的设备数据更新到REDIS失败
+    注意事项：执行该函数前，需取保数据库列表属性信息和REDIS列表属性信息已经同步
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_update_liftInfo(){
+    /*获取REDIS设备列表--同步过REDIS，就列表信息数据可能不全或者冗余*/
+    if(this->_get_liftList_f_redis()) return -0x01;
+
+    /*获取需要REDIS更新的设备信息*/
+    Json::Value jsonList;   jsonList.clear();
+    Json::Value jsonInfo_rd; 
+    for(int i=0x00; i<this->jsonLiftList_db.size(); i++){
+        if(this->_get_lift_f_rdlist_byID(this->jsonLiftList_db[i]["id"].asString().c_str(), jsonInfo_rd) != 0x01) continue;
+        if(this->_check_liftInfo_db_rd(this->jsonLiftList_db[i], jsonInfo_rd)){
+            jsonList.append(this->jsonLiftList_db[i]);
+            
+            #if DEBUG
+            cout<< "数据库RDS：" << this->JWriter.write(this->jsonLiftList_db[i]) <<endl;
+            #endif
+        }
+    }
+
+    /*REDIS数据更新*/
+    if(cmd_device_redisUpdate(jsonList)) return -0x02;
+
+    return 0x00;
+}
+
+/*
+    函数名称：_update
+    函数功能：同步数据信息
+    传入参数：无
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::_update(){
+    Json::Value jsonList;
+
+    /*获取REDIS中多余的设备信息*/
+    if(this->_get_loseLiftList(jsonList)) return -0x01;
+
+    /*删除REDIS中多余的设备信息*/
+    if(this->_del_loseListList(jsonList)) return -0x02;
+
+    /*获取新增的设备信息*/
+    if(this->_get_newLiftList(jsonList)) return -0x03;
+
+    /*将新增设备更新到REDIS中*/
+    if(this->_add_newLiftList(jsonList)) return -0x04;
+
+    /**/
+    if(this->_update_liftInfo()) return -0x05;
+
+    /*设备信息实时写入备份*/
+    this->liftInfo_bak = this->JWriter.write(this->jsonLiftList_db);
+
+    return 0x00;
+}
+
+/*
+    函数名称：init
+    函数功能：初始化
+    传入参数：无
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+int Manager::init(){
+    /*更新一次数据*/
+    if(this->_getInfo()) return -0x01;
+    if(this->_update()) return -0x02;
+
+    return 0x00;
+}
+
+/*
+    函数名称：run
+    函数功能：运行
+    传入参数：无
+    传出数据：
+    注意事项：无
+    编写人员：王凤龙
+    编写时间：2017-06-06
+*/
+#if 1
+int Manager::run(){
+    for(;;){
+        /*获取数据*/
+        if(this->_getInfo()){ 
+            #if DEBUG
+            cout<< "获取设备数据失败" <<endl;
+            #endif
+            sleep(20); continue; 
+        }
+
+        /*判断数据是否更改*/
+        if(this->liftInfo_bak != this->JWriter.write(this->jsonLiftList_db)){ this->liftInfo_bak = this->JWriter.write(this->jsonLiftList_db); goto MANAGER_END; }
+    
+        /*同步数据*/
+        this->_update();
+
+        MANAGER_END:
+        sleep(20);
+    }
+
+    return 0x00;
+}
+#else
+int Manager::run(){
+    int err = 0x00;
+    
+    /*获取数据库设备*/
+    err = this->_get_liftList_f_db();
+    cout<< "获取数据库设备列表信息：" << err <<endl;
+    cout<< this->JWriter.write(this->jsonLiftList_db) <<endl;
+
+    /*获取REDIS设备*/
+    err = this->_get_liftList_f_redis();
+    cout<< "获取REDIS设备列表信息:" << err <<endl;
+    cout<< this->JWriter.write(this->jsonListList_redis) <<endl;
+
+    /*获取REDIS多余设备*/
+    Json::Value jsonList; jsonList.clear();
+    err = this->_get_loseLiftList(jsonList);
+    cout<< "获取REDIS多余设备:" << err <<endl;
+    cout<< "数量：" << jsonList.size() <<endl;
+    cout<< this->JWriter.write(jsonList) <<endl;
+
+    /*删除多余设备*/
+    err = this->_del_loseListList(jsonList);
+    cout<< "删除多余设备：" << err <<endl; 
+
+    /*获取数据库新增设备*/
+    err = this->_get_newLiftList(jsonList);
+    cout<< "获取REDIS未添加的新增设备：" << err <<endl;
+    cout<< "数量：" << jsonList.size() <<endl;
+    cout<< this->JWriter.write(jsonList) <<endl;
+
+    /*新增设备写入REDIS*/
+    err = this->_add_newLiftList(jsonList);
+    cout<< "新增设备写入REDIS" << err <<endl;
+
+    err = this->_update_liftInfo();
+    cout<< "更新缓存信息：" << err <<endl;
+
+    return 0x00;
+}
+#endif

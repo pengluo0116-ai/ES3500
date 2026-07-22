@@ -1,0 +1,35 @@
+#CC=mipsel-openwrt-linux-g++
+CC=g++
+
+EXE_NAME=collect
+EXE_PATH=../bin
+EXE=$(EXE_PATH)/$(EXE_NAME)
+
+OBJ_PATH=../obj
+OBJ= \
+$(OBJ_PATH)/main.o \
+$(OBJ_PAHT)/lsystem.o \
+$(OBJ_PATH)/Task.o \
+$(OBJ_PATH)/Update.o
+
+
+LIB= -lpthread
+
+$(EXE):$(OBJ)
+	$(CC) -o $(EXE) $(OBJ) $(LIB)
+
+$(OBJ_PATH)/main.o:main.h
+	$(CC) -o $(OBJ_PATH)/main.o -c main.cpp
+
+$(OBJ_PAHT)/lsystem.o:lsystem.h
+	$(CC) -o $(OBJ_PAHT)/lsystem.o -c lsystem.cpp
+
+$(OBJ_PATH)/Task.o:Task.h
+	$(CC) -o $(OBJ_PATH)/Task.o -c Task.cpp
+
+$(OBJ_PATH)/Update.o:Update.h
+	$(CC) -o $(OBJ_PATH)/Update.o -c Update.cpp
+
+.PHONY:clean
+clean:
+	-rm -rf $(EXE) $(OBJ)

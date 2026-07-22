@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="/js/jquery-1.8.3.min.js"></script>
+    <script type="text/javascript" src="/js/layer/layer.js"></script>
+    <script type="text/javascript" src="/js/layer/extend/layer.ext.js"></script>
+    <script type="text/javascript" src="/js/JS.js"></script>
+    <script type="text/javascript" src="/js/jquery.contextmenu.r2.js"></script>
+    <script type="text/javascript" src="/js/r_qtlift_tree.js"></script>
+    <script type="text/javascript" src="/js/r_index.js"></script>
+    <!--[if lt IE 9]>
+        <script src="/js/json/json2.js" type="text/javascript"></script>
+    <![endif]-->
+    <script type="text/javascript" src="/js/html5shiv.min.js"></script>
+    <script type="text/javascript" src="/js/mqttws31.min.js"></script>
+    <script type="text/javascript" src="/js/r_mqtt.js"></script>
+    <script type="text/javascript" src="/js/r_index.js"></script>
+    <script type="text/javascript" src="/js/md5.min.js"></script>
+    <style type="text/css">
+        html{ height: 100%; }
+        body{ height: 100%; margin: 0; padding: 0; overflow-x: hidden; overflow-y: hidden; }
+        a{ text-decoration:none; color:#504F4F;}
+        .bl{ width:199px; height: 100%; background-color:white; float: left; border:1px solid #17B808; border-width: 0 1px 0 0; overflow-y:auto; }
+        .br{ float: left; height: 100%; background-color: white; display: none; }
+        .br_box{ width:100%; height:100%; }
+        #b_oc{ width: 20px; height: 120px; text-align: center; font-weight: bolder; background-color:#17B808; color:white; position:fixed; line-height: 120px; text-decoration: none; }
+        #b_pg{ width: 20px; height: 60px; text-align: center; background-color:#17B808; color:white; position:fixed; text-decoration: none; font-size: 12px; }
+        #b_pg a{ color: white;}
+        #browser a:hover{ color:blue; }
+    </style>
+
+    <!--属性菜单js文件和css文件-->
+    <link rel="stylesheet" type="text/css" href="/js/treevive/jquery.treeview.css" />
+    <script src="/js/treevive/lib/jquery.cookie.js" type="text/javascript"></script>
+    <script src="/js/treevive/jquery.treeview.js" type="text/javascript"></script>
+    <style type="text/css">
+        #browser{ font-size:14px; }
+
+        /*滚动条*/
+        .bl::-webkit-scrollbar{ background-color:white; width: 2px; }
+        .bl::-webkit-scrollbar-thumb{ background-color:#6699CC; }
+
+        /*树形列表--电梯*/
+        .lift_ls{ padding-left:15px; height: 14px; line-height: 14px; background-image: url(/image/lift.jpg); background-repeat: no-repeat; background-position: 0 5px; }
+    
+        /*右键菜单*/
+        .mlist{ font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div id="bd" style="width:100%; height:100%;">
+        <div class="bl">
+            <!--邮件列表-->
+            <div  class="contextMenu" id="g_rcont">
+                <ul class="mlist">
+                    <li id="g_showlist">展示小组设备</li>
+                </ul>
+            </div>
+
+            <!--属性列表开始-->
+            <ul id="browser" class="filetree">
+            </ul>
+            <!--属性列表结束-->
+
+        </div>
+        <div class="br">
+            <div class="br_box">
+                    <a href="javascript:;" id="b_pg" onclick="QT_load_page()">
+                        </br>地图
+                    </a>
+                <input type="hidden" value="1" />
+                <a href="javascript:;" id="b_oc" onclick="listCont_show()" ><</a>
+                <iframe id="pframe" src="" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script type="text/javascript">
+    $(document).ready(function(){
+        /*初始化框架*/
+        pageShow_list();
+        $(".br").css("display", "block");
+        window.onresize = windowCont_resize;
+        QTcmd_group_getAll();
+    });
+
+    /*
+        函数名称：QT_load_page
+        函数功能：子页面跳转
+        传入参数：无
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-27
+    */
+    function QT_load_page(){
+        location.href = "/real/map.html";
+    }
+
+    /*
+        函数名称：changeWH
+        函数功能：设置页面各个空间的高宽度
+        传入参数：无
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-15
+    */
+    function changeWH(){
+        var obj = $("#bd");
+        var width = obj.width();
+        var height = obj.height();
+
+        /*左侧高宽度*/
+        $(".bl").css({
+            "width" : "199px",
+            "height" :  height + "px"
+        });
+
+        /*右侧高宽度*/
+        $(".br").css({
+            "width" :  (width - 200) + "px",
+            "height" : height + "px"
+        });
+
+        /*开关按钮*/
+        $("#b_oc").css({
+            "top" : height / 3 + "px"
+        });
+    }
+
+    /*
+        函数名称：pageShow_max
+        函数功能：显示内容区域，隐藏列表区域
+        传入参数：无
+        传出数据：无
+        注意事项：按钮操作--隐藏列表区域
+        编写人员：王凤龙
+        编写时间：2017-05-15
+    */
+    function pageShow_max(){
+        var obj = $("#bd");
+        var width = obj.width();
+        var height = obj.height();
+        
+        /*左侧区域--隐藏*/
+        $(".bl").css("display", "none");
+
+        /*右侧区域--设置*/
+        $(".br").css({
+            "width" : width + "px",
+            "height" : height + "px"
+        });
+
+        /*开关按钮*/
+        $("#b_oc").html(">");
+        $(".br_box").find("input:eq(0)").val("0");
+    }
+
+    /*
+        函数名称：pageShow_list
+        函数功能：显示内容区域，显示列表区域
+        传入参数：无
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-15
+    */
+    function pageShow_list(){
+        var obj = $("#bd");
+        var width = obj.width();
+        var height = obj.height();
+
+        /*左侧高宽度*/
+        $(".bl").css({
+            "width" : "199px",
+            "height" :  height + "px",
+            "display" : "block"
+        });
+
+        /*右侧高宽度*/
+        $(".br").css({
+            "width" :  (width - 200) + "px",
+            "height" : height + "px"
+        });
+
+        /*开关按钮*/
+        $("#b_oc").css({
+            "top" : height / 3 + "px"
+        });
+
+        /*开关按钮*/
+        $("#b_oc").html("<");
+        $(".br_box").find("input:eq(0)").val("1");
+    }
+
+    /*
+        函数名称：listCont_show
+        函数功能：控制侧边设备列表的显示和隐藏
+        传入参数：无
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-15
+    */
+    function listCont_show(){
+        switch(~~$(".br_box").find("input:eq(0)").val()){
+            case 0: pageShow_list(); break;
+            case 1: pageShow_max(); break;
+        }
+    }
+
+    /*
+        函数名称：windowCont_resize
+        函数功能：窗体大小改变时事件处理
+        传入参数：无
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-15
+    */
+    function windowCont_resize(){
+        switch(~~$(".br_box").find("input:eq(0)").val()){
+            case 1: pageShow_list(); break;
+            case 0: pageShow_max(); break;
+        }
+    }
+
+    /*
+        函数名称：set_tree_point_status
+        函数功能：设置树形图设备节点的显示状态
+        传入参数：
+                    id          设备ID
+                    satus       状态值 0 正常 1故障 2离线
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-26
+    */
+    function set_tree_point_status(id, status){
+        var obj = $("#dev_" + id);
+        switch(status){
+            case 0: obj.find("a").css("color", "green"); break;
+            case 1: obj.find("a").css("color", "red"); break;
+            case 2: obj.find("a").css("color", ""); break;
+        }
+    }
+
+    $("#browser").treeview().treeview({
+        toggle : function(){
+            console.log($(this).find(".folder").length);
+            console.log(this);
+        }
+    });
+
+    /*
+        函数名称：g_showlist_callback
+        函数功能：列表树小组右键菜单
+        传入参数：t
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-26
+    */
+    function g_showlist_callback(t){ 
+        var id = t.id.replace("list_", "");
+        $("#pframe").attr("src", "/real/lift_group.html?id=" + id);
+    }
+
+    function set_floder_rcont(){
+        $("#browser").find(".folder").each(function(index, element){
+            $(element).contextMenu("g_rcont",{
+                bindings:{
+                    "g_showlist" : g_showlist_callback
+                }
+            });
+        });
+    }
+
+    /*
+        函数名称：QT_checkUpdate_devInfo
+        函数功能：检测设备列表是否更新
+        传入参数：无
+        传出数据：无
+        注意事项：无
+        编写人员：王凤龙
+        编写时间：2017-05-27
+    */
+    function QT_checkUpdate_devInfo(){
+        try{
+           var u = window.mywebkit.checkUpdata_liftInfo(); 
+           if( u == "1"){ location.href = location.href; }
+        }catch(e){ alert(e); }
+
+        setTimeout(QT_checkUpdate_devInfo, 2000);
+    }
+</script>

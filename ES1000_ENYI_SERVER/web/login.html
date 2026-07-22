@@ -1,0 +1,93 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<script src="js/jquery-1.8.3.min.js" type="text/javascript"></script>
+    <script src="js/JS.js" type="text/javascript"></script>
+<!--[if lt IE 9]>
+    <script src="js/json/json2.js" type="text/javascript"></script>
+<![endif]-->
+<script src="js/layer/layer.js" type="text/javascript"></script>
+<script src="js/layer/extend/layer.ext.js" type="text/javascript"></script>
+<style type="text/css">
+    body{ width: 100%; height: 100%;}
+</style>
+<title>电梯运行实时监控系统</title>
+</head>
+<body>
+    <div id="bd_box" class="log_box">
+        <div class="log_l">
+            
+        </div>
+        <div class="log_r">
+            <div class="log_dl"></div>
+            <div class="log_ipt">
+                <div class="log_ipt_l">用户名:</div>
+                <div class="log_ipt_r"><input class="log_ipt_txt" type="text"  id="user" /></div>
+            </div>
+            <div class="log_ipt">
+                <div class="log_ipt_l">密   码:</div>
+                <div class="log_ipt_r"><input class="log_ipt_txt" type="password" id="pasd" /></div>
+            </div>
+            <div class="log_ipt" style=" height:50px; margin-top:10px;">
+                <div class="log_ipt_l"></div>
+                <div class="log_ipt_r"><input class="log_ipt_btn" type="button" id="btn_log" value="登录 >>" /></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script type="text/javascript">
+    /*登录操作*/
+    function login() {
+        var obj_user = $("#user");
+        var obj_pasd = $("#pasd");
+
+        var str_user = obj_user.val();
+        var str_pasd = obj_pasd.val();
+
+        str_user = trimStr(str_user);
+        str_pasd = trimStr(str_pasd);
+
+        if (str_user == null || str_user.length <= 0) { layer.tips("用户名为空", "#user"); return; }
+        if (str_pasd == null || str_pasd.length <= 0) { layer.tips("密码为空", "#pasd"); return; }
+
+        var postjson = {};
+        postjson.display = 1;
+        postjson.user = str_user;
+        postjson.pasd = str_pasd;
+
+        $.post(
+            "cgi-bin/login.cgi",
+            JSON.stringify(postjson),
+            function (data, status) {
+                if (status != "success") { layer.alert("连接服务器失败"); return; }
+                var temp = eval('(' + data + ')');
+                if (parseInt(temp.error) != 0) { layer.alert(temp.data); return; }
+
+                location.href = "index.html";
+            },
+            "html");
+    }
+
+    $(document).ready(function () {
+        $("#btn_log").click(login);
+        var box_height = ($(document).height() - 469) / 2;
+        $("#bd_box").css("margin-top", box_height + "px");
+
+        $("#user").focus().select();
+        $(document).keyup(function (e) {
+            // 回车键事件  
+            if (e.which == 13) {
+                login();
+            }
+        });
+
+    });
+
+
+
+</script>
