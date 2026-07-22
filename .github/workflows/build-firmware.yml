@@ -15,61 +15,79 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-arm-linux-gnueabihf xz-utils kpartx rsync
-          # ARM 交叉编译库
-          sudo dpkg --add-architecture armhf
-          sudo apt-get update
-          sudo apt-get install -y libsqlite3-dev:armhf libjsoncpp-dev:armhf || true
+          sudo apt-get install -y xz-utils kpartx rsync qemu-user-static
 
       - name: Download Armbian
         run: |
           mkdir -p work output
           URL="https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-          echo "Downloading: $URL"
           curl -L --connect-timeout 30 --max-time 900 -o work/armbian.img.xz "$URL" || {
-            echo "hosthatch failed, trying imola..."
             curl -L --connect-timeout 30 --max-time 900 -o work/armbian.img.xz \
-              "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || {
-              echo "FATAL: Cannot download Armbian"
-              exit 1
-            }
+              "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || exit 1
           }
-          ls -lh work/armbian.img.xz
           xz -d work/armbian.img.xz
-          ls -lh work/armbian.img
 
-      - name: Cross-compile collector
+      - name: Extract rootfs and chroot compile
         run: |
-          cd collector/src
-          # 使用项目自带的 ARM .so 库
-          LIB_DIR="../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/lib"
-          INC_DIR="../../ES1000_ENYI_SERVER/web_cgi/webcgi_set/include"
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
-            -I"$INC_DIR" -L"$LIB_DIR" \
-            -o collector \
-            main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-            -lsqlite3 -ljsoncpp -lpthread 2>&1
-          ls -l collector && file collector
-          mkdir -p ../../overlay/root/es2000/bin
-          cp collector ../../overlay/root/es2000/bin/
+          LOOP=$(sudo losetup -f --show -P work/armbian.img)
+          ROOT_PART="${LOOP}p2"
+          sudo mkdir -p /mnt/rootfs
+          sudo mount "$ROOT_PART" /mnt/rootfs
 
-      - name: Cross-compile data_api
+          # 复制 qemu 到 chroot
+          sudo cp /usr/bin/qemu-arm-static /mnt/rootfs/usr/bin/
+
+          # 复制源码到 chroot
+          sudo mkdir -p /mnt/rootfs/root/es2000-src
+          sudo cp -r collector /mnt/rootfs/root/es2000-src/
+          sudo cp -r ES1000_ENYI_SERVER/web_cgi /mnt/rootfs/root/es2000-src/
+
+          # 在 chroot 中安装编译工具并编译
+          sudo chroot /mnt/rootfs /bin/bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq g++ make libsqlite3-dev libjsoncpp-dev 2>&1 | tail -3
+
+            cd /root/es2000-src/collector/src
+            g++ -std=c++11 -O2 -Wall \
+              -I/root/es2000-src/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+              -o collector \
+              main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
+              -lsqlite3 -ljsoncpp -lpthread 2>&1
+            echo 'collector build exit code:' \$?
+            ls -l collector
+
+            mkdir -p /root/es2000/bin
+            cp collector /root/es2000/bin/
+          "
+
+          # 编译 data_api
+          sudo chroot /mnt/rootfs /bin/bash -c "
+            cd /root/es2000-src/ES1000_ENYI_SERVER/web_cgi/data_api
+            g++ -std=c++11 -O2 -Wall \
+              -I/root/es2000-src/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+              -o data_api.cgi data_api.cpp \
+              -lsqlite3 -ljsoncpp 2>&1
+            echo 'data_api build exit code:' \$?
+            ls -l data_api.cgi
+            cp data_api.cgi /root/es2000/bin/
+          "
+
+          # 复制编译产物出来
+          mkdir -p overlay/root/es2000/bin
+          sudo cp /mnt/rootfs/root/es2000/bin/* overlay/root/es2000/bin/ 2>/dev/null || true
+
+          sudo umount /mnt/rootfs
+
+      - name: Check binaries
         run: |
-          cd ES1000_ENYI_SERVER/web_cgi/data_api
-          LIB_DIR="../../webcgi_set/lib"
-          INC_DIR="../../webcgi_set/include"
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -Wall \
-            -I"$INC_DIR" -L"$LIB_DIR" \
-            -o data_api.cgi data_api.cpp \
-            -lsqlite3 -ljsoncpp 2>&1
-          ls -l data_api.cgi && file data_api.cgi
-          mkdir -p ../../../overlay/root/es2000/bin
-          cp data_api.cgi ../../../overlay/root/es2000/bin/
+          ls -l overlay/root/es2000/bin/
+          file overlay/root/es2000/bin/collector 2>/dev/null || echo "collector NOT BUILT"
+          file overlay/root/es2000/bin/data_api.cgi 2>/dev/null || echo "data_api NOT BUILT"
 
-      - name: Create services and scripts
+      - name: Create services
         run: |
           mkdir -p overlay/etc/systemd/system overlay/root/es2000
-
           cat > overlay/etc/systemd/system/es2000-collector.service << 'EOF'
           [Unit]
           Description=ES2000 Data Collector
@@ -97,8 +115,7 @@ jobs:
 
       - name: Inject into image
         run: |
-          IMG="work/armbian.img"
-          LOOP=$(sudo losetup -f --show -P "$IMG")
+          LOOP=$(sudo losetup -f --show -P work/armbian.img)
           ROOT_PART="${LOOP}p2"
           sudo mkdir -p /mnt/rootfs
           sudo mount "$ROOT_PART" /mnt/rootfs
@@ -108,14 +125,12 @@ jobs:
           sudo umount /mnt/rootfs
           sudo losetup -d "$LOOP"
 
-      - name: Package firmware
+      - name: Package
         run: |
           VERSION=$(date +%Y%m%d-%H%M)
-          FW_NAME="ES2000_firmware_${VERSION}.img"
-          mv work/armbian.img "output/${FW_NAME}"
-          cd output
-          xz -1 "${FW_NAME}"
-          ls -lh
+          FW="ES2000_firmware_${VERSION}.img"
+          mv work/armbian.img "output/${FW}"
+          cd output && xz -1 "${FW}" && ls -lh
 
       - name: Upload
         uses: actions/upload-artifact@v4
