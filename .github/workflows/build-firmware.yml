@@ -113,13 +113,14 @@ jobs:
 
       - name: Inject into image
         run: |
-          # Armbian Nano Pi: rootfs 分区起始扇区（试几个常见值）
-          for SECTOR in 270336 524288 81920 385024; do
+          sudo mkdir -p /mnt/rootfs
+          # Armbian Nano Pi: rootfs 分区起始扇区
+          for SECTOR in 270336 524288 81920 385024 65536 131072 262144 4096 8192 16384; do
             OFFSET=$((SECTOR * 512))
-            echo "Trying sector=$SECTOR offset=$OFFSET..."
-            sudo mount -o loop,offset=$OFFSET work/armbian.img /mnt/rootfs 2>/dev/null && break
+            sudo mount -o loop,offset=$OFFSET work/armbian.img /mnt/rootfs 2>/dev/null && { echo "OK sector=$SECTOR"; break; }
+            sudo umount /mnt/rootfs 2>/dev/null || true
           done
-          mountpoint /mnt/rootfs || { echo "Mount failed"; exit 1; }
+          mountpoint /mnt/rootfs || { echo "Mount failed"; sudo fdisk -l work/armbian.img; exit 1; }
           echo "Mounted OK"
           sudo rsync -av overlay/ /mnt/rootfs/
           sudo mkdir -p /mnt/rootfs/etc/systemd/system/multi-user.target.wants
