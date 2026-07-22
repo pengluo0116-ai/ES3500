@@ -34,11 +34,11 @@ jobs:
           
           # 尝试多个镜像源
           MIRRORS=(
-            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
-            "https://mirrors.dotsrc.org/armbian-archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
-            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
-            "https://github.com/armbian/build/releases/download/nanopim1plus/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz"
+            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://mirrors.dotsrc.org/armbian-archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://github.com/armbian/build/releases/download/nanopim1plus/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
           )
           
           DOWNLOADED=false
@@ -59,7 +59,7 @@ jobs:
             echo "ERROR: All mirrors failed. Trying direct Armbian archive..."
             curl -L --connect-timeout 30 --max-time 900 \
               -o work/armbian.img.xz \
-              "https://dl.armbian.com/nanopim1plus/archive/Armbian_23.02.2_Nanopim1plus_bullseye_current_5.15.93.img.xz" || {
+              "https://dl.armbian.com/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || {
               echo "FATAL: Cannot download Armbian image. Network blocked?"
               exit 1
             }
