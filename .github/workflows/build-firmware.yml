@@ -1,4 +1,4 @@
-name: Build ES2000 Full Image
+name: Build ES2000 Auto-Setup Image
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -15,7 +15,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y xz-utils kpartx rsync qemu-user-static
+          sudo apt-get install -y xz-utils kpartx rsync
 
       - name: Download Armbian
         run: |
@@ -27,68 +27,57 @@ jobs:
           }
           xz -d work/armbian.img.xz
 
-      - name: Extract rootfs and chroot compile
+      - name: Create first-boot auto-setup
         run: |
-          LOOP=$(sudo losetup -f --show -P work/armbian.img)
-          ROOT_PART="${LOOP}p2"
-          sudo mkdir -p /mnt/rootfs
-          sudo mount "$ROOT_PART" /mnt/rootfs
+          mkdir -p overlay/root overlay/etc/systemd/system
 
-          # 复制 qemu 到 chroot
-          sudo cp /usr/bin/qemu-arm-static /mnt/rootfs/usr/bin/
+          # 首次启动脚本 —— 自动装依赖 + 编译 + 启动
+          cat > overlay/root/setup.sh << 'SETUP'
+          #!/bin/bash
+          echo "=== ES2000 Auto Setup ==="
 
-          # 复制源码到 chroot
-          sudo mkdir -p /mnt/rootfs/root/es2000-src
-          sudo cp -r collector /mnt/rootfs/root/es2000-src/
-          sudo cp -r ES1000_ENYI_SERVER/web_cgi /mnt/rootfs/root/es2000-src/
+          # 标记只跑一次
+          if [ -f /root/.es2000_done ]; then
+            systemctl start es2000-collector
+            exit 0
+          fi
 
-          # 在 chroot 中安装编译工具并编译
-          sudo chroot /mnt/rootfs /bin/bash -c "
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq
-            apt-get install -y -qq g++ make libsqlite3-dev libjsoncpp-dev 2>&1 | tail -3
+          echo "Installing dependencies..."
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq g++ make libsqlite3-dev libjsoncpp-dev lighttpd
 
-            cd /root/es2000-src/collector/src
-            g++ -std=c++11 -O2 -Wall \
-              -I/root/es2000-src/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
-              -o collector \
-              main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-              -lsqlite3 -ljsoncpp -lpthread 2>&1
-            echo 'collector build exit code:' \$?
-            ls -l collector
+          SRC=/root/ES2000-master
+          mkdir -p /root/es2000/{bin,logs,data}
 
-            mkdir -p /root/es2000/bin
-            cp collector /root/es2000/bin/
-          "
+          # 编译 collector
+          echo "Building collector..."
+          cd $SRC/collector/src
+          g++ -std=c++11 -O2 -Wall \
+            -I$SRC/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+            -o /root/es2000/bin/collector \
+            main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
+            -lsqlite3 -ljsoncpp -lpthread
 
           # 编译 data_api
-          sudo chroot /mnt/rootfs /bin/bash -c "
-            cd /root/es2000-src/ES1000_ENYI_SERVER/web_cgi/data_api
-            g++ -std=c++11 -O2 -Wall \
-              -I/root/es2000-src/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
-              -o data_api.cgi data_api.cpp \
-              -lsqlite3 -ljsoncpp 2>&1
-            echo 'data_api build exit code:' \$?
-            ls -l data_api.cgi
-            cp data_api.cgi /root/es2000/bin/
-          "
+          echo "Building data_api..."
+          cd $SRC/ES1000_ENYI_SERVER/web_cgi/data_api
+          g++ -std=c++11 -O2 -Wall \
+            -I$SRC/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+            -o /root/es2000/bin/data_api.cgi data_api.cpp \
+            -lsqlite3 -ljsoncpp
 
-          # 复制编译产物出来
-          mkdir -p overlay/root/es2000/bin
-          sudo cp /mnt/rootfs/root/es2000/bin/* overlay/root/es2000/bin/ 2>/dev/null || true
+          chmod +x /root/es2000/bin/*
+          systemctl daemon-reload
+          systemctl start es2000-collector
 
-          sudo umount /mnt/rootfs
+          touch /root/.es2000_done
+          echo "=== ES2000 Ready. Port 9009 ==="
+          SETUP
+          chmod +x overlay/root/setup.sh
 
-      - name: Check binaries
-        run: |
-          ls -l overlay/root/es2000/bin/
-          file overlay/root/es2000/bin/collector 2>/dev/null || echo "collector NOT BUILT"
-          file overlay/root/es2000/bin/data_api.cgi 2>/dev/null || echo "data_api NOT BUILT"
-
-      - name: Create services
-        run: |
-          mkdir -p overlay/etc/systemd/system overlay/root/es2000
-          cat > overlay/etc/systemd/system/es2000-collector.service << 'EOF'
+          # collector 服务
+          cat > overlay/etc/systemd/system/es2000-collector.service << 'SVC'
           [Unit]
           Description=ES2000 Data Collector
           After=network.target
@@ -100,18 +89,27 @@ jobs:
           RestartSec=5
           [Install]
           WantedBy=multi-user.target
-          EOF
+          SVC
 
-          cat > overlay/root/es2000/start.sh << 'EOF'
-          #!/bin/bash
-          echo "=== ES2000 Init ==="
-          mkdir -p /root/es2000/{logs,data}
-          systemctl daemon-reload
-          systemctl enable es2000-collector
-          systemctl start es2000-collector
-          echo "Port 9009: $(systemctl is-active es2000-collector)"
-          EOF
-          chmod +x overlay/root/es2000/start.sh
+          # setup 服务（首次启动跑一次）
+          cat > overlay/etc/systemd/system/es2000-setup.service << 'SVC2'
+          [Unit]
+          Description=ES2000 First Boot Setup
+          After=network.target
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash /root/setup.sh
+          RemainAfterExit=yes
+          [Install]
+          WantedBy=multi-user.target
+          SVC2
+
+      - name: Copy source into image
+        run: |
+          mkdir -p overlay/root/ES2000-master
+          rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.jpg' \
+            collector/ qt_display/ ES1000_ENYI_SERVER/ build/ deploy.sh \
+            overlay/root/ES2000-master/
 
       - name: Inject into image
         run: |
@@ -120,21 +118,23 @@ jobs:
           sudo mkdir -p /mnt/rootfs
           sudo mount "$ROOT_PART" /mnt/rootfs
           sudo rsync -av overlay/ /mnt/rootfs/
-          sudo bash -c "echo '/bin/bash /root/es2000/start.sh' >> /mnt/rootfs/etc/rc.local"
-          sudo chmod +x /mnt/rootfs/etc/rc.local
+          # 首次启动跑 setup
+          sudo ln -sf /etc/systemd/system/es2000-setup.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
+          sudo chroot /mnt/rootfs systemctl enable es2000-setup 2>/dev/null || true
+          sudo chroot /mnt/rootfs systemctl enable es2000-collector 2>/dev/null || true
           sudo umount /mnt/rootfs
           sudo losetup -d "$LOOP"
 
       - name: Package
         run: |
           VERSION=$(date +%Y%m%d-%H%M)
-          FW="ES2000_firmware_${VERSION}.img"
+          FW="ES2000_${VERSION}.img"
           mv work/armbian.img "output/${FW}"
           cd output && xz -1 "${FW}" && ls -lh
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ES2000-Firmware-Image
+          name: ES2000-Auto-Image
           path: output/*.img.xz
           retention-days: 30
