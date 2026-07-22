@@ -113,22 +113,21 @@ jobs:
 
       - name: Inject into image
         run: |
-          # 用 parted 精确获取第二个分区起始位置
-          SECTOR=$(sudo parted -m work/armbian.img unit s print 2>/dev/null | grep "^2:" | cut -d: -f2 | sed 's/s$//')
-          if [ -z "$SECTOR" ]; then
-            # fallback: fdisk
-            SECTOR=$(sudo fdisk -l work/armbian.img 2>/dev/null | awk '/armbian\.img2/{print $2}')
-          fi
-          [ -z "$SECTOR" ] && { echo "Cannot find partition 2"; exit 1; }
-          OFFSET=$((SECTOR * 512))
-          echo "Partition 2: sector=$SECTOR offset=$OFFSET"
+          # 用 kpartx 创建分区设备
+          sudo kpartx -av work/armbian.img
+          sleep 1
+          # 第二个分区通常是 /dev/mapper/loop0p2
+          ROOTPART=$(ls /dev/mapper/loop*p2 2>/dev/null | head -1)
+          [ -z "$ROOTPART" ] && ROOTPART=$(ls /dev/mapper/*p2 2>/dev/null | head -1)
+          echo "Root partition: $ROOTPART"
           sudo mkdir -p /mnt/rootfs
-          sudo mount -o loop,offset=$OFFSET work/armbian.img /mnt/rootfs
+          sudo mount "$ROOTPART" /mnt/rootfs
           sudo rsync -av overlay/ /mnt/rootfs/
           sudo mkdir -p /mnt/rootfs/etc/systemd/system/multi-user.target.wants
-          sudo ln -sf /etc/systemd/system/es2000-setup.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/es2000-setup.service 2>/dev/null || true
-          sudo ln -sf /etc/systemd/system/es2000-collector.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/es2000-collector.service 2>/dev/null || true
+          sudo ln -sf /etc/systemd/system/es2000-setup.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/es2000-setup.service
+          sudo ln -sf /etc/systemd/system/es2000-collector.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/es2000-collector.service
           sudo umount /mnt/rootfs
+          sudo kpartx -dv work/armbian.img
 
       - name: Package
         run: |
