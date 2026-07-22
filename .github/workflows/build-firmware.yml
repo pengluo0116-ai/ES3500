@@ -113,21 +113,19 @@ jobs:
 
       - name: Inject into image
         run: |
-          # 用 kpartx 创建分区设备
-          sudo kpartx -av work/armbian.img
-          sleep 1
-          # 第二个分区通常是 /dev/mapper/loop0p2
-          ROOTPART=$(ls /dev/mapper/loop*p2 2>/dev/null | head -1)
-          [ -z "$ROOTPART" ] && ROOTPART=$(ls /dev/mapper/*p2 2>/dev/null | head -1)
-          echo "Root partition: $ROOTPART"
-          sudo mkdir -p /mnt/rootfs
-          sudo mount "$ROOTPART" /mnt/rootfs
+          # Armbian Nano Pi: rootfs 分区起始扇区（试几个常见值）
+          for SECTOR in 270336 524288 81920 385024; do
+            OFFSET=$((SECTOR * 512))
+            echo "Trying sector=$SECTOR offset=$OFFSET..."
+            sudo mount -o loop,offset=$OFFSET work/armbian.img /mnt/rootfs 2>/dev/null && break
+          done
+          mountpoint /mnt/rootfs || { echo "Mount failed"; exit 1; }
+          echo "Mounted OK"
           sudo rsync -av overlay/ /mnt/rootfs/
           sudo mkdir -p /mnt/rootfs/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es2000-setup.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/es2000-setup.service
           sudo ln -sf /etc/systemd/system/es2000-collector.service /mnt/rootfs/etc/systemd/system/multi-user.target.wants/es2000-collector.service
           sudo umount /mnt/rootfs
-          sudo kpartx -dv work/armbian.img
 
       - name: Package
         run: |
