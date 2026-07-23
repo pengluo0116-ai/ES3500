@@ -1,11 +1,7 @@
 /**
- * ES2000 电梯运行实时监控系统 - Qt5 显示程序
- * 
- * 功能：从 SQLite 读取数据，深色仪表盘展示多电梯实时状态
- * 编译：qmake && make
- * 运行：./elevator_display
+ * ES3500 电梯运行监测系统 - 主窗口
+ * 9宫格布局 + 报警红色置顶 + 语音播报
  */
-
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -15,64 +11,59 @@
 #include <QGridLayout>
 #include <QMap>
 #include <QSqlDatabase>
+#include <QProcess>
+#include <QFrame>
 
-// 电梯卡片数据结构
+// 电梯数据结构
 struct ElevatorInfo {
     QString deviceId;
     QString floorNo;
-    QString door;       // 0:关门 1:开门 2:关门到位 3:开门中 4:开门到位 5:关门中
+    QString door;
     QString status;     // 0:停止 1:上行 2:下行
     QString speed;
     QString temp;
     QString hum;
     QString pm2d5;
     QString pm10;
-    QString accX;
-    QString accY;
-    QString accZ;
-    QString amplitude;
-    QString degreeFb;
-    QString degreeLr;
-    QString people;     // 0:无人 1:有人
-    QString maintain;   // 0:未维保 1:维保中
+    QString people;
+    QString maintain;
     int     ebikeCnt;
     int     runNum;
-    int     runTime;
     int     grade;
     bool    hasAlarm;
+    QString alarmDesc;   // 报警描述
     QString updateTime;
-    QString batteryVoltage;  // 电池电压
-    bool    online;          // 在线状态
+    bool    online;
+    QString gatewayIp;   // ES1500网关IP
+    QString location;    // 位置（如"3号楼"）
 };
 
-// 电梯卡片 Widget
+// 单部电梯卡片
 class ElevatorCard : public QFrame {
     Q_OBJECT
 public:
     explicit ElevatorCard(QWidget* parent = nullptr);
     void updateInfo(const ElevatorInfo& info);
-    void setAlarm(bool alarm);
+    bool hasAlarm() const { return m_hasAlarm; }
+    QString deviceId() const { return m_deviceId->text(); }
 
 private:
     void setupUI();
-
     QLabel* m_deviceId;
     QLabel* m_floorNo;
-    QLabel* m_direction;     // 上行/下行/停止
-    QLabel* m_doorStatus;    // 开关门状态
+    QLabel* m_direction;
+    QLabel* m_doorStatus;
     QLabel* m_people;
     QLabel* m_temp;
     QLabel* m_hum;
-    QLabel* m_pm;
-    QLabel* m_speed;
-    QLabel* m_battery;
+    QLabel* m_location;
     QLabel* m_runInfo;
     QLabel* m_updateTime;
-    QLabel* m_alarmIndicator;
-    QFrame* m_cardBg;
+    QLabel* m_alarmDot;
+    bool    m_hasAlarm = false;
 };
 
-// 主窗口
+// 主窗口 - 9宫格
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -84,15 +75,19 @@ private slots:
 
 private:
     void setupUI();
-    void initDatabase();
-    QList<ElevatorInfo> queryAllElevators();
+    QList<ElevatorInfo> queryElevators();
+    void speakAlarm(const ElevatorInfo& elev);
+    void sortCards();
 
     QTimer*              m_timer;
     QGridLayout*         m_gridLayout;
-    QMap<QString, ElevatorCard*> m_cards;
+    QWidget*             m_cardContainer;
     QLabel*              m_titleLabel;
     QLabel*              m_clockLabel;
     QSqlDatabase         m_db;
+    QList<ElevatorCard*> m_cards;
+    QSet<QString>        m_playedAlarms;  // 已播报过的报警
+    QProcess*            m_ttsProcess;
 };
 
 #endif

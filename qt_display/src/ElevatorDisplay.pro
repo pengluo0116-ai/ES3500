@@ -1,5 +1,5 @@
 QT       += core gui sql widgets
-TARGET    = elevator_display
+TARGET    = es3500_display
 TEMPLATE  = app
 
 CONFIG   += c++11
