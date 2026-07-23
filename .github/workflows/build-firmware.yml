@@ -1,4 +1,4 @@
-name: Build ES2000 Auto-Setup Image
+name: Build ES3500 Auto-Setup Image
 
 on:
   workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
           # 首次启动脚本 —— 自动装依赖 + 编译 + 启动
           cat > overlay/root/setup.sh << 'SETUP'
           #!/bin/bash
-          echo "=== ES2000 Auto Setup ==="
+          echo "=== ES3500 Auto Setup ==="
 
           # 标记只跑一次
           if [ -f /root/.es2000_done ]; then
@@ -72,14 +72,14 @@ jobs:
           systemctl start es2000-collector
 
           touch /root/.es2000_done
-          echo "=== ES2000 Ready. Port 9009 ==="
+          echo "=== ES3500 Ready. Port 9009 ==="
           SETUP
           chmod +x overlay/root/setup.sh
 
           # collector 服务
           cat > overlay/etc/systemd/system/es2000-collector.service << 'SVC'
           [Unit]
-          Description=ES2000 Data Collector
+          Description=ES3500 Data Collector
           After=network.target
           [Service]
           Type=simple
@@ -94,7 +94,7 @@ jobs:
           # setup 服务（首次启动跑一次）
           cat > overlay/etc/systemd/system/es2000-setup.service << 'SVC2'
           [Unit]
-          Description=ES2000 First Boot Setup
+          Description=ES3500 First Boot Setup
           After=network.target
           [Service]
           Type=oneshot
@@ -131,13 +131,13 @@ jobs:
       - name: Package
         run: |
           VERSION=$(date +%Y%m%d-%H%M)
-          FW="ES2000_${VERSION}.img"
+          FW="ES3500_${VERSION}.img"
           mv work/armbian.img "output/${FW}"
           cd output && xz -1 "${FW}" && ls -lh
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ES2000-Auto-Image
+          name: ES3500-Auto-Image
           path: output/*.img.xz
           retention-days: 30

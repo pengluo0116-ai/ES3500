@@ -69,13 +69,14 @@ int main() {
 
         // 4. 记录报警
         if (alarm.has_alarm) {
-            db.saveAlarm(data.id, alarm);
-            std::cout << "[ALARM] 设备 " << data.id 
+            db.saveAlarm(data.param.id, alarm);
+            std::cout << "[ALARM] 设备 " << data.param.id 
                       << " 报警: " << alarm.codes << std::endl;
         }
 
         // 5. 返回响应
-        response = "{\"error\":0,\"alarm\":" + (alarm.has_alarm ? "1" : "0") + "}";
+        std::string resp = std::string("{\"error\":0,\"alarm\":") + (alarm.has_alarm ? "1" : "0") + "}";
+        response = resp;
         return 0;
     });
 
