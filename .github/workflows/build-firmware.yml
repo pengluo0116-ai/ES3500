@@ -47,23 +47,23 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq g++ make libsqlite3-dev libjsoncpp-dev lighttpd
 
-          SRC=/root/ES2000-master
+          SRC=/root/ES3500-master
           mkdir -p /root/es2000/{bin,logs,data}
 
           # 编译 collector
           echo "Building collector..."
           cd $SRC/collector/src
           g++ -std=c++11 -O2 -Wall \
-            -I$SRC/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+            -I$SRC/ES1500_ENYI_SERVER/web_cgi/webcgi_set/include \
             -o /root/es2000/bin/collector \
             main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
             -lsqlite3 -ljsoncpp -lpthread
 
           # 编译 data_api
           echo "Building data_api..."
-          cd $SRC/ES1000_ENYI_SERVER/web_cgi/data_api
+          cd $SRC/ES1500_ENYI_SERVER/web_cgi/data_api
           g++ -std=c++11 -O2 -Wall \
-            -I$SRC/ES1000_ENYI_SERVER/web_cgi/webcgi_set/include \
+            -I$SRC/ES1500_ENYI_SERVER/web_cgi/webcgi_set/include \
             -o /root/es2000/bin/data_api.cgi data_api.cpp \
             -lsqlite3 -ljsoncpp
 
@@ -106,10 +106,10 @@ jobs:
 
       - name: Copy source into image
         run: |
-          mkdir -p overlay/root/ES2000-master
-          rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.jpg' \
-            collector/ qt_display/ ES1000_ENYI_SERVER/ build/ deploy.sh \
-            overlay/root/ES2000-master/
+          mkdir -p overlay/root/ES3500-master
+          rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.jpg' --exclude='*.zip' \
+            collector/ qt_display/ ES1500_ENYI_SERVER/ build/ deploy.sh \
+            overlay/root/ES3500-master/
 
       - name: Inject into image
         run: |
