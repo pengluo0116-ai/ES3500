@@ -24,3 +24,10 @@ firmware/work/
 # IDE
 .vscode/
 .idea/
+
+# Large binaries
+*.img
+*.img.xz
+*.zip
+*.so
+*.so.*
