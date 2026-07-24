@@ -100,6 +100,32 @@ jobs:
           INIT
           chmod +x overlay/root/init.sh
 
+          # SD→eMMC 自动烧录脚本
+          cat > overlay/root/flash_emmc.sh << 'FLASH'
+          #!/bin/bash
+          if [ -f /root/.flashed ]; then exit 0; fi
+          if [ -e /dev/mmcblk1 ]; then
+            echo "=== Flashing eMMC, please wait... ==="
+            dd if=/dev/mmcblk0 of=/dev/mmcblk1 bs=4M status=progress
+            touch /root/.flashed
+            echo "=== Done! Power off, remove SD card, power on ==="
+          fi
+          FLASH
+          chmod +x overlay/root/flash_emmc.sh
+
+          # 开机自启 eMMC 烧录
+          cat > overlay/etc/systemd/system/es3500-flash.service << 'FSVC'
+          [Unit]
+          Description=ES3500 SD to eMMC Flash
+          After=local-fs.target
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash /root/flash_emmc.sh
+          RemainAfterExit=yes
+          [Install]
+          WantedBy=multi-user.target
+          FSVC
+
           # rc.local 开机启动
           mkdir -p overlay/etc
           echo '#!/bin/bash' > overlay/etc/rc.local
@@ -131,6 +157,7 @@ jobs:
           sudo rsync -av overlay/ /mnt/arm/
           sudo mkdir -p /mnt/arm/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
+          sudo ln -sf /etc/systemd/system/es3500-flash.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
           sudo umount /mnt/arm
           sudo losetup -d "$LOOP"
 
