@@ -176,12 +176,12 @@ jobs:
           sudo mkdir -p /mnt/arm
           sudo mount "$ROOTPART" /mnt/arm
           sudo rsync -av overlay/ /mnt/arm/
-          # 禁用首次设置向导 + 设 root 密码
-          sudo chroot /mnt/arm /bin/bash -c "
-            systemctl disable armbian-firstrun 2>/dev/null || true
-            systemctl disable armbian-firstrun-config 2>/dev/null || true
-            echo 'root:1234' | chpasswd
-          " 2>/dev/null || true
+          # 禁用首次设置向导
+          sudo rm -f /mnt/arm/etc/systemd/system/multi-user.target.wants/armbian-firstrun*.service 2>/dev/null || true
+          sudo rm -f /mnt/arm/etc/systemd/system/armbian-firstrun*.service 2>/dev/null || true
+          # 直接写 root 密码 (1234)
+          PWHASH=$(python3 -c "import crypt; print(crypt.crypt('1234', crypt.METHOD_SHA512))" 2>/dev/null || echo '$6$rounds=4096$salt$hash')
+          sudo sed -i "s|^root:[^:]*|root:$PWHASH|" /mnt/arm/etc/shadow 2>/dev/null || true
           sudo mkdir -p /mnt/arm/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
           sudo ln -sf /etc/systemd/system/es3500-flash.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
