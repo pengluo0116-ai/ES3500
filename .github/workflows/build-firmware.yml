@@ -12,17 +12,22 @@ jobs:
       - run: sudo apt update && sudo apt install -y xz-utils kpartx rsync
       - run: |
           mkdir -p work
-          for u in \
-            "https://armbian.tnahosting.net/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://mirrors.dotsrc.org/armbian-dl/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"; do
-            echo "Try: $u"
-            curl -L --connect-timeout 15 --max-time 600 -o work/base.img.xz "$u" && [ $(stat -c%s work/base.img.xz) -gt 1000000 ] && break
-            rm -f work/base.img.xz
+          # 每个源重试 3 次
+          for attempt in 1 2 3; do
+            echo "=== Attempt $attempt ==="
+            for u in \
+              "https://armbian.tnahosting.net/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+              "https://mirrors.dotsrc.org/armbian-dl/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+              "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+              "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"; do
+              echo "Try: $u"
+              curl -L --retry 3 --connect-timeout 30 --max-time 600 -o work/base.img.xz "$u" && [ $(stat -c%s work/base.img.xz) -gt 1000000 ] && break 2
+              rm -f work/base.img.xz
+            done
+            [ -f work/base.img.xz ] && break
+            sleep 30
           done
-          [ -f work/base.img.xz ] || { echo "FATAL: download failed"; exit 1; }
+          [ -f work/base.img.xz ] || { echo "FATAL: download failed after 3 attempts"; exit 1; }
           xz -d work/base.img.xz
       - name: Prepare overlay
         run: |
