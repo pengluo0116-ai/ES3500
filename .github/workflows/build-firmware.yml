@@ -113,13 +113,13 @@ jobs:
           fi
           export DEBIAN_FRONTEND=noninteractive
 
-          echo "[1/4] Updating packages..."
+          echo "[1/5] Updating packages..."
           apt-get update -qq 2>&1 | tail -1
 
-          echo "[2/4] Installing build tools..."
+          echo "[2/5] Installing build tools..."
           apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak 2>&1 | tail -1
 
-          echo "[3/4] Compiling collector..."
+          echo "[3/5] Compiling collector..."
           SRC=/root/ES3500-master
           cd $SRC/src
           INC=$SRC/web_cgi/webcgi_set/include
@@ -130,7 +130,15 @@ jobs:
           cp collector /root/es2000/bin/
           echo "collector: $(ls -l /root/es2000/bin/collector)"
 
-          echo "[4/4] Enabling services..."
+          echo "[4/5] Installing Qt5 + compiling display..."
+          apt-get install -y -qq qtbase5-dev libqt5sql5-sqlite 2>&1 | tail -1
+          cd $SRC/src
+          qmake ElevatorDisplay.pro 2>&1 | tail -1
+          make -j2 2>&1 | tail -2
+          cp es3500_display /root/
+          echo "display: $(ls -l /root/es3500_display)"
+
+          echo "[5/5] Starting services..."
           systemctl daemon-reload
           systemctl enable es3500-collector es3500-display
           systemctl start es3500-collector
