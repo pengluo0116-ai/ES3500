@@ -109,14 +109,30 @@ jobs:
 
       - name: Inject into image
         run: |
-          SECTOR=$(sudo fdisk -l work/base.img | grep "base.img2" | awk '{print $2}')
-          OFFSET=$((SECTOR * 512))
+          # 用 losetup + partprobe 方式
+          LOOP=$(sudo losetup -f --show work/base.img)
+          sudo partprobe "$LOOP" 2>/dev/null || true
+          sleep 2
+          # 尝试 p2 分区设备
+          if [ -e "${LOOP}p2" ]; then
+            ROOTPART="${LOOP}p2"
+          else
+            # fallback: 用 fdisk 算 offset
+            SECTOR=$(sudo fdisk -l work/base.img 2>/dev/null | awk '/img2/{print $2}' | head -1)
+            [ -z "$SECTOR" ] && SECTOR=$(sudo fdisk -l work/base.img 2>/dev/null | grep -E "^\S+\s+\*?\s+[0-9]+" | tail -1 | awk '{print $2}')
+            OFFSET=$((SECTOR * 512))
+            sudo losetup -d "$LOOP"
+            LOOP=$(sudo losetup -f --show -o $OFFSET work/base.img)
+            ROOTPART="$LOOP"
+          fi
+          echo "Using: $ROOTPART"
           sudo mkdir -p /mnt/arm
-          sudo mount -o loop,offset=$OFFSET work/base.img /mnt/arm
+          sudo mount "$ROOTPART" /mnt/arm
           sudo rsync -av overlay/ /mnt/arm/
           sudo mkdir -p /mnt/arm/etc/systemd/system/multi-user.target.wants
-          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/
+          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
           sudo umount /mnt/arm
+          sudo losetup -d "$LOOP"
 
       - name: Package
         run: |
