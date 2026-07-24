@@ -1,4 +1,4 @@
-name: Build ES3500 Precompiled Image
+name: Build ES3500 Complete Image
 
 on:
   workflow_dispatch:
@@ -13,67 +13,67 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install tools
-        run: sudo apt update && sudo apt install -y xz-utils kpartx rsync qemu-user-static
+        run: sudo apt-get update && sudo apt-get install -y xz-utils kpartx rsync
 
       - name: Download Armbian
         run: |
-          mkdir -p work
-          curl -L --max-time 900 -o work/base.img.xz \
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || {
+          mkdir -p work output
+          URL="https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+          curl -L --max-time 900 -o work/base.img.xz "$URL" || {
             curl -L --max-time 900 -o work/base.img.xz \
               "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || exit 1
           }
           xz -d work/base.img.xz
 
-      - name: Precompile collector in ARM
+      - name: Prepare overlay
         run: |
-          # 挂载分区
-          LOOP=$(sudo losetup -f --show work/base.img)
-          sudo partprobe "$LOOP" 2>/dev/null || true; sleep 2
-          if [ -e "${LOOP}p2" ]; then RP="${LOOP}p2"; else
-            SEC=$(sudo fdisk -l work/base.img|grep "img2"|awk '{print $2}')
-            sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"
-          fi
-          sudo mkdir -p /mnt/arm; sudo mount "$RP" /mnt/arm
-          sudo cp /usr/bin/qemu-arm-static /mnt/arm/usr/bin/
+          mkdir -p overlay/root/ES3500-master
 
-          # 复制源码进 chroot
-          sudo mkdir -p /mnt/arm/root/build
-          sudo cp collector/src/*.cpp collector/src/*.h /mnt/arm/root/build/
-          sudo cp -r ES1500_ENYI_SERVER/web_cgi/webcgi_set/include /mnt/arm/root/build/ 2>/dev/null || true
-          sudo cp -r web_cgi/webcgi_set/include /mnt/arm/root/build/ 2>/dev/null || true
+          # ===== 跳过首次用户创建，预制账户 =====
+          # 禁用 armbian 首次设置
+          mkdir -p overlay/etc/systemd/system
+          ln -sf /dev/null overlay/etc/systemd/system/armbian-firstrun.service 2>/dev/null || true
+          ln -sf /dev/null overlay/etc/systemd/system/armbian-firstrun-config.service 2>/dev/null || true
 
-          # 在 ARM 环境里安装依赖 + 编译
-          sudo chroot /mnt/arm /bin/bash -c "
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq
-            apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev 2>&1 | tail -2
-            cd /root/build
-            INC=/root/build/include
-            [ ! -d \$INC ] && INC=/root/build/include || true
-            g++ -std=c++11 -O2 -I\$INC -I\$INC/sqlite -o collector \
-              main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-              -lsqlite3 -ljsoncpp -lpthread 2>&1
-            mkdir -p /root/es2000/bin
-            cp collector /root/es2000/bin/
-            echo 'BUILD OK' && ls -l /root/es2000/bin/collector
-          " 2>&1 | tail -8
+          # ===== 固定 IP 192.168.1.120 =====
+          mkdir -p overlay/etc/NetworkManager/system-connections
+          cat > overlay/etc/NetworkManager/system-connections/eth0.nmconnection << 'NET'
+          [connection]
+          id=eth0
+          type=ethernet
+          interface-name=eth0
+          autoconnect=true
+          [ipv4]
+          method=manual
+          addresses=192.168.1.120/24
+          gateway=192.168.1.1
+          dns=114.114.114.114;8.8.8.8
+          [ipv6]
+          method=disabled
+          NET
+          chmod 600 overlay/etc/NetworkManager/system-connections/eth0.nmconnection
 
-          # 取出编译产物
-          mkdir -p output
-          sudo cp /mnt/arm/root/es2000/bin/collector output/
-          sudo cp /mnt/arm/root/build/collector output/ 2>/dev/null || true
-          ls -lh output/
-          file output/collector 2>/dev/null || echo "NO BINARY"
+          # 创建 root 自动登录（tty1）
+          mkdir -p overlay/etc/systemd/system/getty@tty1.service.d
+          cat > overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AL'
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+          AL
 
-          sudo umount /mnt/arm
-          sudo losetup -d "$LOOP"
+          # root 密码设为 1234
+          mkdir -p overlay/etc
+          PWHASH='$6$xyz$hashed'  # 占位，真正写 shadow 时用 chpasswd
+          echo 'root:$1$salt$hashed' > overlay/etc/shadow_fix
+          echo "root:1234" > overlay/root/.password
 
-      - name: Prep services
-        run: |
-          mkdir -p overlay/root/es2000/bin overlay/etc/systemd/system
-          cp output/collector overlay/root/es2000/bin/ 2>/dev/null || echo "WARN: no binary"
+          # 复制全部源码
+          rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.zip' --exclude='*.jpg' --exclude='test' \
+            collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh \
+            overlay/root/ES3500-master/
 
+          # collector 服务
+          mkdir -p overlay/etc/systemd/system
           cat > overlay/etc/systemd/system/es3500-collector.service << 'SVC'
           [Unit]
           Description=ES3500 Collector
@@ -82,33 +82,151 @@ jobs:
           Type=simple
           ExecStart=/root/es2000/bin/collector
           Restart=always
+          RestartSec=3
           [Install]
           WantedBy=multi-user.target
           SVC
 
-      - name: Inject + enable
-        run: |
-          LOOP=$(sudo losetup -f --show work/base.img)
-          sudo partprobe "$LOOP"; sleep 2
-          if [ -e "${LOOP}p2" ]; then RP="${LOOP}p2"; else
-            SEC=$(sudo fdisk -l work/base.img|grep "img2"|awk '{print $2}')
-            sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"
+          # Qt 显示服务
+          cat > overlay/etc/systemd/system/es3500-display.service << 'QT'
+          [Unit]
+          Description=ES3500 Display
+          After=es3500-collector.service
+          [Service]
+          Type=simple
+          ExecStart=/root/es3500-display
+          Environment=DISPLAY=:0
+          Environment=QT_QPA_PLATFORM=linuxfb
+          Restart=always
+          [Install]
+          WantedBy=multi-user.target
+          QT
+
+          # 首次启动：编译 + 安装
+          cat > overlay/root/init.sh << 'INIT'
+          #!/bin/bash
+          set -e
+          echo "=== ES3500 Auto Init ==="
+          if [ -f /root/.init_done ]; then
+            systemctl start es3500-collector 2>/dev/null
+            exit 0
           fi
-          sudo mkdir -p /mnt/arm; sudo mount "$RP" /mnt/arm
+          export DEBIAN_FRONTEND=noninteractive
+
+          echo "[1/5] Updating packages..."
+          apt-get update -qq 2>&1 | tail -1
+
+          echo "[2/5] Installing build tools..."
+          apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak 2>&1 | tail -1
+
+          echo "[3/5] Compiling collector..."
+          SRC=/root/ES3500-master
+          cd $SRC/src
+          INC=$SRC/web_cgi/webcgi_set/include
+          g++ -std=c++11 -O2 -I$INC -I$INC/sqlite -o collector \
+            main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
+            -lsqlite3 -ljsoncpp -lpthread 2>&1
+          mkdir -p /root/es2000/bin
+          cp collector /root/es2000/bin/
+          echo "collector: $(ls -l /root/es2000/bin/collector)"
+
+          echo "[4/5] Installing Qt5 + compiling display..."
+          apt-get install -y -qq qtbase5-dev libqt5sql5-sqlite 2>&1 | tail -1
+          cd $SRC/src
+          qmake ElevatorDisplay.pro 2>&1 | tail -1
+          make -j2 2>&1 | tail -2
+          cp es3500_display /root/
+          echo "display: $(ls -l /root/es3500_display)"
+
+          echo "[5/5] Starting services..."
+          systemctl daemon-reload
+          systemctl enable es3500-collector es3500-display
+          systemctl start es3500-collector
+          touch /root/.init_done
+          echo "=== ES3500 READY (port 9009) ==="
+          INIT
+          chmod +x overlay/root/init.sh
+
+          # SD→eMMC 自动烧录脚本
+          cat > overlay/root/flash_emmc.sh << 'FLASH'
+          #!/bin/bash
+          if [ -f /root/.flashed ]; then exit 0; fi
+          if [ -e /dev/mmcblk1 ]; then
+            echo "=== Flashing eMMC, please wait... ==="
+            dd if=/dev/mmcblk0 of=/dev/mmcblk1 bs=4M status=progress
+            touch /root/.flashed
+            echo "=== Done! Power off, remove SD card, power on ==="
+          fi
+          FLASH
+          chmod +x overlay/root/flash_emmc.sh
+
+          # 开机自启 eMMC 烧录
+          cat > overlay/etc/systemd/system/es3500-flash.service << 'FSVC'
+          [Unit]
+          Description=ES3500 SD to eMMC Flash
+          After=local-fs.target
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash /root/flash_emmc.sh
+          RemainAfterExit=yes
+          [Install]
+          WantedBy=multi-user.target
+          FSVC
+
+          # rc.local 开机启动
+          mkdir -p overlay/etc
+          echo '#!/bin/bash' > overlay/etc/rc.local
+          echo '/bin/bash /root/init.sh &' >> overlay/etc/rc.local
+          echo 'exit 0' >> overlay/etc/rc.local
+          chmod +x overlay/etc/rc.local
+
+      - name: Inject into image
+        run: |
+          # 用 losetup + partprobe 方式
+          LOOP=$(sudo losetup -f --show work/base.img)
+          sudo partprobe "$LOOP" 2>/dev/null || true
+          sleep 2
+          # 尝试 p2 分区设备
+          if [ -e "${LOOP}p2" ]; then
+            ROOTPART="${LOOP}p2"
+          else
+            # fallback: 用 fdisk 算 offset
+            SECTOR=$(sudo fdisk -l work/base.img 2>/dev/null | awk '/img2/{print $2}' | head -1)
+            [ -z "$SECTOR" ] && SECTOR=$(sudo fdisk -l work/base.img 2>/dev/null | grep -E "^\S+\s+\*?\s+[0-9]+" | tail -1 | awk '{print $2}')
+            OFFSET=$((SECTOR * 512))
+            sudo losetup -d "$LOOP"
+            LOOP=$(sudo losetup -f --show -o $OFFSET work/base.img)
+            ROOTPART="$LOOP"
+          fi
+          echo "Using: $ROOTPART"
+          sudo mkdir -p /mnt/arm
+          sudo mount "$ROOTPART" /mnt/arm
           sudo rsync -av overlay/ /mnt/arm/
+          # 禁用首次设置向导
+          sudo rm -f /mnt/arm/etc/systemd/system/multi-user.target.wants/armbian-firstrun*.service 2>/dev/null || true
+          sudo rm -f /mnt/arm/etc/systemd/system/armbian-firstrun*.service 2>/dev/null || true
+          # 直接写 root 密码 (1234)
+          PWHASH=$(python3 -c "import crypt; print(crypt.crypt('1234', crypt.METHOD_SHA512))" 2>/dev/null || echo '$6$rounds=4096$salt$hash')
+          sudo sed -i "s|^root:[^:]*|root:$PWHASH|" /mnt/arm/etc/shadow 2>/dev/null || true
           sudo mkdir -p /mnt/arm/etc/systemd/system/multi-user.target.wants
-          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/
-          sudo umount /mnt/arm; sudo losetup -d "$LOOP"
+          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
+          sudo ln -sf /etc/systemd/system/es3500-flash.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
+          sudo umount /mnt/arm
+          sudo losetup -d "$LOOP"
 
       - name: Package
         run: |
-          FW="ES3500_precompiled_$(date +%Y%m%d-%H%M).img"
-          mv work/base.img "$FW"
-          xz -1 "$FW" && ls -lh "$FW.xz"
+          BUILD=$(git rev-list --count HEAD)
+          SHA=$(git rev-parse --short HEAD)
+          FEAT="flash-autoIP"
+          FW="ES3500_B${BUILD}_${SHA}_${FEAT}.img"
+          echo "Firmware: $FW"
+          mv work/base.img "output/${FW}"
+          cd output && xz -1 "${FW}" && ls -lh
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ES3500-precompiled
-          path: "*.img.xz"
+          name: ES3500-Complete
+          path: output/*.img.xz
           retention-days: 30
