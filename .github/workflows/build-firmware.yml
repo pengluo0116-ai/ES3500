@@ -1,4 +1,4 @@
-name: Build ES3500 Full Image
+name: Build ES3500 Complete Image
 
 on:
   workflow_dispatch:
@@ -6,16 +6,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xz-utils kpartx rsync qemu-user-static
+        run: sudo apt-get update && sudo apt-get install -y xz-utils kpartx rsync
 
       - name: Download Armbian
         run: |
@@ -27,59 +25,19 @@ jobs:
           }
           xz -d work/base.img.xz
 
-      - name: Compile collector in ARM chroot
+      - name: Prepare overlay
         run: |
-          # Mount rootfs
-          SECTOR=$(sudo fdisk -l work/base.img | grep "base.img2" | awk '{print $2}')
-          OFFSET=$((SECTOR * 512))
-          sudo mkdir -p /mnt/arm
-          sudo mount -o loop,offset=$OFFSET work/base.img /mnt/arm
-          sudo cp /usr/bin/qemu-arm-static /mnt/arm/usr/bin/
-
-          # Copy source
-          sudo mkdir -p /mnt/arm/root/build
-          sudo cp -r collector/src/*.cpp collector/src/*.h /mnt/arm/root/build/
-          sudo cp -r ES1500_ENYI_SERVER/web_cgi/webcgi_set/include /mnt/arm/root/build/
-
-          # Compile natively in ARM env
-          sudo chroot /mnt/arm /bin/bash -c "
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq 2>&1 | tail -1
-            apt-get install -y -qq g++ make libsqlite3-dev libjsoncpp-dev 2>&1 | tail -2
-            cd /root/build
-            g++ -std=c++11 -O2 -Iinclude -Iinclude/sqlite -o collector \
-              main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
-              -lsqlite3 -ljsoncpp -lpthread 2>&1
-            echo EXIT_CODE=\$?
-            ls -l collector
-            mkdir -p /root/es2000/bin
-            cp collector /root/es2000/bin/
-          "
-          sudo umount /mnt/arm
-
-          # Extract binary
-          SECTOR=$(sudo fdisk -l work/base.img | grep "base.img2" | awk '{print $2}')
-          OFFSET=$((SECTOR * 512))
-          sudo mount -o loop,offset=$OFFSET work/base.img /mnt/arm
-          mkdir -p overlay/root/es2000/bin
-          sudo cp /mnt/arm/root/es2000/bin/collector overlay/root/es2000/bin/ 2>/dev/null
-          sudo cp /mnt/arm/root/build/collector overlay/root/es2000/bin/ 2>/dev/null
-          ls -l overlay/root/es2000/bin/
-          sudo umount /mnt/arm
-
-      - name: Verify binary
-        run: |
-          file overlay/root/es2000/bin/collector || echo "BINARY MISSING"
-          ls -lh overlay/root/es2000/bin/
-
-      - name: Create SD-to-eMMC + auto-start
-        run: |
-          mkdir -p overlay/root overlay/etc/systemd/system
+          mkdir -p overlay/root/ES3500-master
+          # 复制全部源码
+          rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.zip' --exclude='*.jpg' --exclude='test' \
+            collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh \
+            overlay/root/ES3500-master/
 
           # collector 服务
+          mkdir -p overlay/etc/systemd/system
           cat > overlay/etc/systemd/system/es3500-collector.service << 'SVC'
           [Unit]
-          Description=ES3500 Data Collector
+          Description=ES3500 Collector
           After=network.target
           [Service]
           Type=simple
@@ -93,7 +51,7 @@ jobs:
           # Qt 显示服务
           cat > overlay/etc/systemd/system/es3500-display.service << 'QT'
           [Unit]
-          Description=ES3500 Elevator Display
+          Description=ES3500 Display
           After=es3500-collector.service
           [Service]
           Type=simple
@@ -101,39 +59,53 @@ jobs:
           Environment=DISPLAY=:0
           Environment=QT_QPA_PLATFORM=linuxfb
           Restart=always
-          RestartSec=5
           [Install]
           WantedBy=multi-user.target
           QT
 
-          # 首次启动脚本
+          # 首次启动：编译 + 安装
           cat > overlay/root/init.sh << 'INIT'
           #!/bin/bash
-          echo "=== ES3500 Init ==="
-          if [ -f /root/.init_done ]; then exit 0; fi
+          set -e
+          echo "=== ES3500 Auto Init ==="
+          if [ -f /root/.init_done ]; then
+            systemctl start es3500-collector 2>/dev/null
+            exit 0
+          fi
           export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq
-          apt-get install -y -qq qtbase5-dev libqt5sql5-sqlite libsqlite3-0 libjsoncpp24 espeak 2>&1 | tail -3
-          touch /root/.init_done
+
+          echo "[1/4] Updating packages..."
+          apt-get update -qq 2>&1 | tail -1
+
+          echo "[2/4] Installing build tools..."
+          apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak 2>&1 | tail -1
+
+          echo "[3/4] Compiling collector..."
+          SRC=/root/ES3500-master
+          cd $SRC/collector/src
+          INC=$SRC/ES1500_ENYI_SERVER/web_cgi/webcgi_set/include
+          g++ -std=c++11 -O2 -I$INC -I$INC/sqlite -o collector \
+            main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
+            -lsqlite3 -ljsoncpp -lpthread 2>&1
+          mkdir -p /root/es2000/bin
+          cp collector /root/es2000/bin/
+          echo "collector: $(ls -l /root/es2000/bin/collector)"
+
+          echo "[4/4] Enabling services..."
+          systemctl daemon-reload
           systemctl enable es3500-collector es3500-display
-          systemctl start es3500-collector es3500-display
-          echo "=== ES3500 Ready:9009 ==="
+          systemctl start es3500-collector
+          touch /root/.init_done
+          echo "=== ES3500 READY (port 9009) ==="
           INIT
           chmod +x overlay/root/init.sh
 
-          # SD→eMMC 自动烧录服务
-          cat > overlay/etc/systemd/system/es3500-flash.service << 'FLASH'
-          [Unit]
-          Description=ES3500 SD to eMMC Flash
-          After=local-fs.target
-          ConditionPathExists=!/root/.flashed
-          [Service]
-          Type=oneshot
-          ExecStart=/bin/bash -c "if [ -e /dev/mmcblk1 ]; then echo 'Flashing eMMC...'; dd if=/dev/mmcblk0 of=/dev/mmcblk1 bs=4M status=progress; touch /root/.flashed; echo 'DONE - Remove SD and reboot'; else echo 'No eMMC found, running from SD'; fi"
-          RemainAfterExit=yes
-          [Install]
-          WantedBy=multi-user.target
-          FLASH
+          # rc.local 开机启动
+          mkdir -p overlay/etc
+          echo '#!/bin/bash' > overlay/etc/rc.local
+          echo '/bin/bash /root/init.sh &' >> overlay/etc/rc.local
+          echo 'exit 0' >> overlay/etc/rc.local
+          chmod +x overlay/etc/rc.local
 
       - name: Inject into image
         run: |
@@ -142,25 +114,19 @@ jobs:
           sudo mkdir -p /mnt/arm
           sudo mount -o loop,offset=$OFFSET work/base.img /mnt/arm
           sudo rsync -av overlay/ /mnt/arm/
-          # 启用服务
           sudo mkdir -p /mnt/arm/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/
-          sudo ln -sf /etc/systemd/system/es3500-display.service /mnt/arm/etc/systemd/system/multi-user.target.wants/
-          sudo ln -sf /etc/systemd/system/es3500-flash.service /mnt/arm/etc/systemd/system/multi-user.target.wants/
-          # 开机运行init
-          echo '/bin/bash /root/init.sh &' | sudo tee -a /mnt/arm/etc/rc.local
-          sudo chmod +x /mnt/arm/etc/rc.local
           sudo umount /mnt/arm
 
       - name: Package
         run: |
-          FW="ES3500_$(date +%Y%m%d).img"
+          FW="ES3500_$(date +%Y%m%d-%H%M).img"
           mv work/base.img "output/${FW}"
           cd output && xz -1 "${FW}" && ls -lh
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ES3500-Complete-Image
+          name: ES3500-Complete
           path: output/*.img.xz
           retention-days: 30
