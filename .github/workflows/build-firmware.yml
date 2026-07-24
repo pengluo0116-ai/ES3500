@@ -92,9 +92,9 @@ jobs:
 
       - name: Inject
         run: |
-          # 用 parted 精确获取分区 2 起始
-          SEC=$(sudo parted -m work/base.img unit s print 2>/dev/null | grep "^2:" | cut -d: -f2 | sed 's/s$//')
-          [ -z "$SEC" ] && SEC=270336
+          # 用 parted 精确获取分区起始
+          SEC=$(sudo parted -m work/base.img unit s print 2>/dev/null | grep "^1:" | cut -d: -f2 | sed 's/s$//')
+          [ -z "$SEC" ] && SEC=8192
           OFFSET=$((SEC * 512))
           echo "Partition 2: sector=$SEC offset=$OFFSET"
           LOOP=$(sudo losetup -f --show -o $OFFSET work/base.img)
