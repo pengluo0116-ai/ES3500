@@ -101,6 +101,19 @@ jobs:
           sudo mkdir -p /mnt/r
           sudo mount "$LOOP" /mnt/r || { echo "MOUNT FAILED"; sudo losetup -d "$LOOP"; exit 1; }
           sudo rsync -a overlay/ /mnt/r/
+          # 彻底跳过首次设置
+          sudo rm -rf /mnt/r/etc/systemd/system/armbian-firstrun* /mnt/r/etc/systemd/system/multi-user.target.wants/armbian-firstrun* 2>/dev/null || true
+          sudo rm -f /mnt/r/root/.not_logged_in_yet 2>/dev/null || true
+          # root 密码 1234
+          PWHASH=$(python3 -c "import crypt; print(crypt.crypt('1234', crypt.METHOD_SHA512))" 2>/dev/null || echo 'x')
+          [ "$PWHASH" != "x" ] && sudo sed -i "s|^root:[^:]*|root:$PWHASH|" /mnt/r/etc/shadow 2>/dev/null || true
+          # 自动登录
+          sudo mkdir -p /mnt/r/etc/systemd/system/getty@tty1.service.d
+          sudo tee /mnt/r/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOF' > /dev/null
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+          EOF
           sudo mkdir -p /mnt/r/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/r/etc/systemd/system/multi-user.target.wants/
           sudo rm -f /mnt/r/etc/systemd/system/multi-user.target.wants/armbian-firstrun*
