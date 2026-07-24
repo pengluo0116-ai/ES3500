@@ -208,7 +208,11 @@ jobs:
 
       - name: Package
         run: |
-          FW="ES3500_$(date +%Y%m%d-%H%M).img"
+          BUILD=$(git rev-list --count HEAD)
+          SHA=$(git rev-parse --short HEAD)
+          FEAT="flash-autoIP"
+          FW="ES3500_B${BUILD}_${SHA}_${FEAT}.img"
+          echo "Firmware: $FW"
           mv work/base.img "output/${FW}"
           cd output && xz -1 "${FW}" && ls -lh
 
