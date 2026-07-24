@@ -92,12 +92,14 @@ jobs:
 
       - name: Inject
         run: |
-          LOOP=$(sudo losetup -f --show work/base.img)
-          sudo partprobe "$LOOP"; sleep 2
-          RP="${LOOP}p2"
-          [ -e "$RP" ] || { SEC=$(sudo fdisk -l work/base.img|awk '/img2/{print $2}'); sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"; }
+          # 用 parted 精确获取分区 2 起始
+          SEC=$(sudo parted -m work/base.img unit s print 2>/dev/null | grep "^2:" | cut -d: -f2 | sed 's/s$//')
+          [ -z "$SEC" ] && SEC=270336
+          OFFSET=$((SEC * 512))
+          echo "Partition 2: sector=$SEC offset=$OFFSET"
+          LOOP=$(sudo losetup -f --show -o $OFFSET work/base.img)
           sudo mkdir -p /mnt/r
-          sudo mount "$RP" /mnt/r
+          sudo mount "$LOOP" /mnt/r || { echo "MOUNT FAILED"; sudo losetup -d "$LOOP"; exit 1; }
           sudo rsync -a overlay/ /mnt/r/
           sudo mkdir -p /mnt/r/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/r/etc/systemd/system/multi-user.target.wants/
