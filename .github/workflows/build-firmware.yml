@@ -73,6 +73,35 @@ jobs:
           WIFI
           chmod 600 overlay/etc/NetworkManager/system-connections/easyele.nmconnection
 
+          # ===== 终端支持方向键 + Delete =====
+          mkdir -p overlay/etc overlay/root
+          cat > overlay/etc/inputrc << 'INPUTRC'
+          # 方向键
+          "\e[A": history-search-backward
+          "\e[B": history-search-forward
+          "\e[C": forward-char
+          "\e[D": backward-char
+          # Delete 键
+          "\e[3~": delete-char
+          # Home/End
+          "\e[1~": beginning-of-line
+          "\e[4~": end-of-line
+          "\e[H": beginning-of-line
+          "\e[F": end-of-line
+          # 允许 8-bit 输入
+          set meta-flag on
+          set input-meta on
+          set output-meta on
+          set convert-meta off
+          INPUTRC
+
+          cat > overlay/root/.bashrc << 'BASHRC'
+          export TERM=xterm-256color
+          export LC_ALL=C.UTF-8
+          alias ll='ls -la'
+          PS1='\e[1;32m\u@\h:\e[0m\w\$ '
+          BASHRC
+
           # 创建 root 自动登录（tty1）
           mkdir -p overlay/etc/systemd/system/getty@tty1.service.d
           cat > overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AL'
