@@ -69,7 +69,7 @@ jobs:
 
           # 复制全部源码
           rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.zip' --exclude='*.jpg' --exclude='test' \
-            collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh \
+            collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh logo/ \
             overlay/root/ES3500-master/
 
           # collector 服务
@@ -117,7 +117,12 @@ jobs:
           apt-get update -qq 2>&1 | tail -1
 
           echo "[2/5] Installing build tools..."
-          apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak 2>&1 | tail -1
+          apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak fbi 2>&1 | tail -1
+
+          # 显示开机 Logo（接 HDMI 就能看到）
+          if command -v fbi &>/dev/null && [ -f $SRC/logo/kaijijiemian.png ]; then
+            fbi -a -T 1 -noverbose -t 3 $SRC/logo/kaijijiemian.png 2>/dev/null &
+          fi
 
           echo "[3/5] Compiling collector..."
           SRC=/root/ES3500-master
