@@ -1,4 +1,4 @@
-name: Build ES3500 (Precompiled)
+name: Build ES3500 Image
 
 on:
   workflow_dispatch:
@@ -7,80 +7,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-arm-linux-gnueabihf xz-utils kpartx rsync
-
-      - name: Download Armbian
-        run: |
+      - uses: actions/checkout@v4
+      - run: sudo apt update && sudo apt install -y xz-utils kpartx rsync
+      - run: |
           mkdir -p work
-          URLS=(
-            "https://armbian.tnahosting.net/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://mirrors.dotsrc.org/armbian-dl/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
-          )
-          OK=false
-          for u in "${URLS[@]}"; do
+          for u in \
+            "https://armbian.tnahosting.net/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+            "https://mirrors.dotsrc.org/armbian-dl/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
+            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"; do
             echo "Try: $u"
-            curl -L --connect-timeout 15 --max-time 900 -o work/base.img.xz "$u" && [ $(stat -c%s work/base.img.xz) -gt 1000000 ] && { OK=true; break; }
+            curl -L --connect-timeout 15 --max-time 600 -o work/base.img.xz "$u" && [ $(stat -c%s work/base.img.xz) -gt 1000000 ] && break
             rm -f work/base.img.xz
           done
-          $OK || { echo "ALL MIRRORS FAILED"; exit 1; }
+          [ -f work/base.img.xz ] || { echo "FATAL: download failed"; exit 1; }
           xz -d work/base.img.xz
-
-      - name: Mount rootfs as sysroot
-        id: sysroot
+      - name: Prepare overlay
         run: |
-          LOOP=$(sudo losetup -f --show work/base.img)
-          sudo partprobe "$LOOP"; sleep 2
-          RP="${LOOP}p2"
-          [ -e "$RP" ] || { SEC=$(sudo fdisk -l work/base.img|awk '/img2/{print $2}'); sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"; }
-          sudo mkdir -p /mnt/sysroot
-          sudo mount "$RP" /mnt/sysroot
-          echo "SYSROOT=/mnt/sysroot" >> $GITHUB_ENV
-          echo "LOOP=$LOOP" >> $GITHUB_ENV
+          mkdir -p overlay/root/ES3500-master overlay/etc/systemd/system overlay/etc/NetworkManager/system-connections
 
-          # 在 sysroot 里装 ARM 开发库
-          sudo cp /usr/bin/qemu-arm-static /mnt/sysroot/usr/bin/ 2>/dev/null || true
-          sudo chroot /mnt/sysroot /bin/bash -c "
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq 2>&1 | tail -1
-            apt-get install -y -qq libsqlite3-dev libjsoncpp-dev 2>&1 | tail -1
-          " 2>&1 || echo "CHROOT INSTALL FAILED (ignored)"
-          sudo rm -f /mnt/sysroot/usr/bin/qemu-arm-static
-          ls /mnt/sysroot/usr/lib/arm-linux-gnueabihf/libsqlite3* 2>/dev/null || echo "NO sqlite3 in sysroot"
+          # 复制源码
+          rsync -aq --exclude='.git' --exclude='*.img*' --exclude='*.zip' --exclude='test' collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh install.sh logo/ overlay/root/ES3500-master/
 
-      - name: Cross-compile collector
-        run: |
-          arm-linux-gnueabihf-g++ \
-            --sysroot=$SYSROOT \
-            -std=c++11 -O2 -Wall \
-            -I$SYSROOT/usr/include -I$SYSROOT/usr/include/arm-linux-gnueabihf \
-            -o collector \
-            collector/src/main.cpp \
-            collector/src/http_server.cpp \
-            collector/src/db_manager.cpp \
-            collector/src/json_parser.cpp \
-            collector/src/alarm_checker.cpp \
-            -lsqlite3 -ljsoncpp -lpthread -lrt \
-            -Wl,-rpath-link,$SYSROOT/usr/lib/arm-linux-gnueabihf \
-            -Wl,-rpath-link,$SYSROOT/lib/arm-linux-gnueabihf 2>&1
-          file collector && echo "COMPILE OK"
-          mkdir -p overlay/root/es2000/bin
-          cp collector overlay/root/es2000/bin/
-
-      - name: Create services
-        run: |
-          mkdir -p overlay/etc/systemd/system overlay/root overlay/etc/NetworkManager/system-connections
-
+          # collector 服务
           cat > overlay/etc/systemd/system/es3500-collector.service << 'SVC'
           [Unit]
           Description=ES3500 Collector
@@ -111,36 +62,52 @@ jobs:
           WIFI
           chmod 600 overlay/etc/NetworkManager/system-connections/easyele.nmconnection
 
-          # root 自动登录
-          mkdir -p overlay/etc/systemd/system/getty@tty1.service.d
-          echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM" > overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf
+          # 终端支持
+          cat > overlay/root/.bashrc << 'RC'
+          export TERM=xterm-256color
+          alias ll='ls -la'
+          RC
 
-      - name: Inject + enable
+          # 首次启动
+          cat > overlay/root/init.sh << 'INIT'
+          #!/bin/bash
+          [ -f /root/.init_ok ] && { systemctl start es3500-collector; exit 0; }
+          echo "ES3500 Auto Setup"
+          apt-get update -qq && apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak
+          SRC=/root/ES3500-master
+          cd $SRC/src
+          g++ -std=c++11 -O2 -I$SRC/web_cgi/webcgi_set/include -I$SRC/web_cgi/webcgi_set/include/sqlite -o collector *.cpp -lsqlite3 -ljsoncpp -lpthread 2>&1 | tail -1
+          mkdir -p /root/es2000/bin && cp collector /root/es2000/bin/
+          systemctl enable es3500-collector && systemctl start es3500-collector
+          touch /root/.init_ok
+          echo "ES3500 READY"
+          INIT
+          chmod +x overlay/root/init.sh
+          echo '/bin/bash /root/init.sh &' > overlay/etc/rc.local && chmod +x overlay/etc/rc.local
+
+      - name: Inject
         run: |
-          sudo mount "$LOOP" /mnt/sysroot 2>/dev/null || {
-            LOOP=$(sudo losetup -f --show work/base.img)
-            sudo partprobe "$LOOP"; sleep 2
-            RP="${LOOP}p2"
-            [ -e "$RP" ] || { SEC=$(sudo fdisk -l work/base.img|awk '/img2/{print $2}'); sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"; }
-            sudo mount "$LOOP" /mnt/sysroot
-          }
-          sudo rsync -av overlay/ /mnt/sysroot/
-          sudo mkdir -p /mnt/sysroot/etc/systemd/system/multi-user.target.wants
-          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/sysroot/etc/systemd/system/multi-user.target.wants/
-          # 跳过 Armbian 首次设置
-          sudo rm -f /mnt/sysroot/etc/systemd/system/multi-user.target.wants/armbian-firstrun* 2>/dev/null || true
-          sudo umount /mnt/sysroot
+          LOOP=$(sudo losetup -f --show work/base.img)
+          sudo partprobe "$LOOP"; sleep 2
+          RP="${LOOP}p2"
+          [ -e "$RP" ] || { SEC=$(sudo fdisk -l work/base.img|awk '/img2/{print $2}'); sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"; }
+          sudo mkdir -p /mnt/r
+          sudo mount "$RP" /mnt/r
+          sudo rsync -a overlay/ /mnt/r/
+          sudo mkdir -p /mnt/r/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/r/etc/systemd/system/multi-user.target.wants/
+          sudo rm -f /mnt/r/etc/systemd/system/multi-user.target.wants/armbian-firstrun*
+          sudo umount /mnt/r
           sudo losetup -d "$LOOP"
 
       - name: Package
         run: |
-          FW="ES3500_v$(date +%y%m%d.%H%M).img"
+          FW="ES3500_B$(date +%y%m%d).img"
           mv work/base.img "$FW"
           xz -1 "$FW" && ls -lh "$FW.xz"
 
-      - name: Upload
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: ES3500-Final
+          name: ES3500-Image
           path: "*.img.xz"
           retention-days: 30
