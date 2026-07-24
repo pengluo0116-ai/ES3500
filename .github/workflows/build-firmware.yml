@@ -53,6 +53,26 @@ jobs:
           NET
           chmod 600 overlay/etc/NetworkManager/system-connections/eth0.nmconnection
 
+          # ===== WiFi 默认连接 =====
+          cat > overlay/etc/NetworkManager/system-connections/easyele.nmconnection << 'WIFI'
+          [connection]
+          id=easyele
+          type=wifi
+          interface-name=wlan0
+          autoconnect=true
+          [wifi]
+          mode=infrastructure
+          ssid=easyele
+          [wifi-security]
+          key-mgmt=wpa-psk
+          psk=JNZQ7572
+          [ipv4]
+          method=auto
+          [ipv6]
+          method=disabled
+          WIFI
+          chmod 600 overlay/etc/NetworkManager/system-connections/easyele.nmconnection
+
           # 创建 root 自动登录（tty1）
           mkdir -p overlay/etc/systemd/system/getty@tty1.service.d
           cat > overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AL'
