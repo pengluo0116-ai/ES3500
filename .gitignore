@@ -31,3 +31,4 @@ firmware/work/
 *.zip
 *.so
 *.so.*
+*.img.gz

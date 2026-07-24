@@ -121,8 +121,8 @@ jobs:
 
           echo "[3/4] Compiling collector..."
           SRC=/root/ES3500-master
-          cd $SRC/collector/src
-          INC=$SRC/ES1500_ENYI_SERVER/web_cgi/webcgi_set/include
+          cd $SRC/src
+          INC=$SRC/web_cgi/webcgi_set/include
           g++ -std=c++11 -O2 -I$INC -I$INC/sqlite -o collector \
             main.cpp http_server.cpp db_manager.cpp json_parser.cpp alarm_checker.cpp \
             -lsqlite3 -ljsoncpp -lpthread 2>&1
