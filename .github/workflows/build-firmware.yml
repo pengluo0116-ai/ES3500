@@ -35,6 +35,24 @@ jobs:
           ln -sf /dev/null overlay/etc/systemd/system/armbian-firstrun.service 2>/dev/null || true
           ln -sf /dev/null overlay/etc/systemd/system/armbian-firstrun-config.service 2>/dev/null || true
 
+          # ===== 固定 IP 192.168.1.120 =====
+          mkdir -p overlay/etc/NetworkManager/system-connections
+          cat > overlay/etc/NetworkManager/system-connections/eth0.nmconnection << 'NET'
+          [connection]
+          id=eth0
+          type=ethernet
+          interface-name=eth0
+          autoconnect=true
+          [ipv4]
+          method=manual
+          addresses=192.168.1.120/24
+          gateway=192.168.1.1
+          dns=114.114.114.114;8.8.8.8
+          [ipv6]
+          method=disabled
+          NET
+          chmod 600 overlay/etc/NetworkManager/system-connections/eth0.nmconnection
+
           # 创建 root 自动登录（tty1）
           mkdir -p overlay/etc/systemd/system/getty@tty1.service.d
           cat > overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AL'
