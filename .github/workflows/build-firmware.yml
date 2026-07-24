@@ -1,7 +1,6 @@
-name: Build ES3500 Image
+name: Build ES3500 from Scratch
 
-on:
-  workflow_dispatch:
+on: workflow_dispatch
 
 jobs:
   build:
@@ -9,30 +8,64 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt update && sudo apt install -y xz-utils kpartx rsync
-      - run: |
-          mkdir -p work
-          for u in \
-            "https://armbian.tnahosting.net/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://mirrors.dotsrc.org/armbian-dl/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" \
-            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"; do
-            echo "Try: $u"
-            curl -L --connect-timeout 15 --max-time 600 -o work/base.img.xz "$u" && [ $(stat -c%s work/base.img.xz) -gt 1000000 ] && break
-            rm -f work/base.img.xz
-          done
-          [ -f work/base.img.xz ] || { echo "FATAL: download failed"; exit 1; }
-          xz -d work/base.img.xz
-      - name: Prepare overlay
+
+      - name: Install tools
         run: |
-          mkdir -p overlay/root/ES3500-master overlay/etc/systemd/system overlay/etc/NetworkManager/system-connections
+          sudo apt update
+          sudo apt install -y debootstrap qemu-user-static xz-utils
 
-          # 复制源码
-          rsync -aq --exclude='.git' --exclude='*.img*' --exclude='*.zip' --exclude='test' collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh install.sh logo/ overlay/root/ES3500-master/
+      - name: Build ARM rootfs
+        run: |
+          sudo debootstrap --arch=armhf --include=g++,libsqlite3-dev,libjsoncpp-dev,espeak,network-manager,wpasupplicant bullseye /mnt/arm http://deb.debian.org/debian 2>&1 | tail -5
+          sudo cp /usr/bin/qemu-arm-static /mnt/arm/usr/bin/
 
+      - name: Cross-compile collector
+        run: |
+          # 复制源码到 rootfs
+          sudo mkdir -p /mnt/arm/root/build
+          sudo cp collector/src/*.cpp collector/src/*.h /mnt/arm/root/build/
+          sudo cp -r ES1500_ENYI_SERVER/web_cgi/webcgi_set/include /mnt/arm/root/build/
+          sudo cp -r web_cgi/webcgi_set/include /mnt/arm/root/build/ 2>/dev/null || true
+
+          # 在 ARM 环境编译
+          sudo chroot /mnt/arm /bin/bash -c "
+            cd /root/build
+            ln -sf /usr/include/jsoncpp/json/ /usr/include/json 2>/dev/null || true
+            g++ -std=c++11 -O2 -Iinclude -Iinclude/sqlite -o collector *.cpp -lsqlite3 -ljsoncpp -lpthread 2>&1
+            mkdir -p /root/es2000/bin
+            cp collector /root/es2000/bin/
+            echo BUILD OK
+          " 2>&1 | tail -5
+
+          mkdir -p output/bin
+          sudo cp /mnt/arm/root/es2000/bin/collector output/bin/ 2>/dev/null
+          sudo cp /mnt/arm/root/build/collector output/bin/ 2>/dev/null
+          file output/bin/collector 2>/dev/null || echo "NO BINARY"
+
+      - name: Create image
+        run: |
+          # 创建 2GB 空白镜像
+          dd if=/dev/zero of=es3500.img bs=1M count=2048
+          # 分区
+          sudo parted -s es3500.img mklabel msdos
+          sudo parted -s es3500.img mkpart primary ext4 4MiB 100%
+          # 格式化
+          LOOP=$(sudo losetup -f --show es3500.img)
+          sudo partprobe "$LOOP"; sleep 2
+          sudo mkfs.ext4 -q "${LOOP}p1" 2>/dev/null || { SEC=8192; sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) es3500.img); sudo mkfs.ext4 -q "$LOOP" 2>/dev/null; }
+          # 复制 rootfs
+          sudo mkdir -p /mnt/img
+          sudo mount "$LOOP" /mnt/img
+          sudo rsync -a /mnt/arm/ /mnt/img/ --exclude=/proc --exclude=/sys --exclude=/dev
+          # 基础配置
+          echo "ES3500" | sudo tee /mnt/img/etc/hostname
+          sudo bash -c 'cat > /mnt/img/etc/network/interfaces << EOF
+          auto lo
+          iface lo inet loopback
+          EOF'
           # collector 服务
-          cat > overlay/etc/systemd/system/es3500-collector.service << 'SVC'
+          sudo mkdir -p /mnt/img/etc/systemd/system/multi-user.target.wants
+          cat > /tmp/collector.service << 'SVC'
           [Unit]
           Description=ES3500 Collector
           After=network.target
@@ -43,71 +76,17 @@ jobs:
           [Install]
           WantedBy=multi-user.target
           SVC
-
-          # WiFi
-          cat > overlay/etc/NetworkManager/system-connections/easyele.nmconnection << 'WIFI'
-          [connection]
-          id=easyele
-          type=wifi
-          interface-name=wlan0
-          autoconnect=true
-          [wifi]
-          mode=infrastructure
-          ssid=easyele
-          [wifi-security]
-          key-mgmt=wpa-psk
-          psk=JNZQ7572
-          [ipv4]
-          method=auto
-          WIFI
-          chmod 600 overlay/etc/NetworkManager/system-connections/easyele.nmconnection
-
-          # 终端支持
-          cat > overlay/root/.bashrc << 'RC'
-          export TERM=xterm-256color
-          alias ll='ls -la'
-          RC
-
-          # 首次启动
-          cat > overlay/root/init.sh << 'INIT'
-          #!/bin/bash
-          [ -f /root/.init_ok ] && { systemctl start es3500-collector; exit 0; }
-          echo "ES3500 Auto Setup"
-          apt-get update -qq && apt-get install -y -qq g++ libsqlite3-dev libjsoncpp-dev espeak
-          SRC=/root/ES3500-master
-          cd $SRC/src
-          g++ -std=c++11 -O2 -I$SRC/web_cgi/webcgi_set/include -I$SRC/web_cgi/webcgi_set/include/sqlite -o collector *.cpp -lsqlite3 -ljsoncpp -lpthread 2>&1 | tail -1
-          mkdir -p /root/es2000/bin && cp collector /root/es2000/bin/
-          systemctl enable es3500-collector && systemctl start es3500-collector
-          touch /root/.init_ok
-          echo "ES3500 READY"
-          INIT
-          chmod +x overlay/root/init.sh
-          echo '/bin/bash /root/init.sh &' > overlay/etc/rc.local && chmod +x overlay/etc/rc.local
-
-      - name: Inject
-        run: |
-          LOOP=$(sudo losetup -f --show work/base.img)
-          sudo partprobe "$LOOP"; sleep 2
-          RP="${LOOP}p2"
-          [ -e "$RP" ] || { SEC=$(sudo fdisk -l work/base.img|awk '/img2/{print $2}'); sudo losetup -d "$LOOP"; LOOP=$(sudo losetup -f --show -o $((SEC*512)) work/base.img); RP="$LOOP"; }
-          sudo mkdir -p /mnt/r
-          sudo mount "$RP" /mnt/r
-          sudo rsync -a overlay/ /mnt/r/
-          sudo mkdir -p /mnt/r/etc/systemd/system/multi-user.target.wants
-          sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/r/etc/systemd/system/multi-user.target.wants/
-          sudo rm -f /mnt/r/etc/systemd/system/multi-user.target.wants/armbian-firstrun*
-          sudo umount /mnt/r
+          sudo cp /tmp/collector.service /mnt/img/etc/systemd/system/
+          sudo ln -sf /etc/systemd/system/collector.service /mnt/img/etc/systemd/system/multi-user.target.wants/
+          sudo umount /mnt/img
           sudo losetup -d "$LOOP"
 
       - name: Package
         run: |
-          FW="ES3500_B$(date +%y%m%d).img"
-          mv work/base.img "$FW"
-          xz -1 "$FW" && ls -lh "$FW.xz"
+          xz -1 es3500.img && ls -lh es3500.img.xz
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ES3500-Image
+          name: ES3500-scratch
           path: "*.img.xz"
           retention-days: 30
