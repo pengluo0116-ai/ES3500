@@ -28,6 +28,27 @@ jobs:
       - name: Prepare overlay
         run: |
           mkdir -p overlay/root/ES3500-master
+
+          # ===== 跳过首次用户创建，预制账户 =====
+          # 禁用 armbian 首次设置
+          mkdir -p overlay/etc/systemd/system
+          ln -sf /dev/null overlay/etc/systemd/system/armbian-firstrun.service 2>/dev/null || true
+          ln -sf /dev/null overlay/etc/systemd/system/armbian-firstrun-config.service 2>/dev/null || true
+
+          # 创建 root 自动登录（tty1）
+          mkdir -p overlay/etc/systemd/system/getty@tty1.service.d
+          cat > overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AL'
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+          AL
+
+          # root 密码设为 1234
+          mkdir -p overlay/etc
+          PWHASH='$6$xyz$hashed'  # 占位，真正写 shadow 时用 chpasswd
+          echo 'root:$1$salt$hashed' > overlay/etc/shadow_fix
+          echo "root:1234" > overlay/root/.password
+
           # 复制全部源码
           rsync -a --exclude='.git' --exclude='*.img*' --exclude='*.zip' --exclude='*.jpg' --exclude='test' \
             collector/ qt_display/ ES1500_ENYI_SERVER/ deploy.sh \
@@ -155,6 +176,12 @@ jobs:
           sudo mkdir -p /mnt/arm
           sudo mount "$ROOTPART" /mnt/arm
           sudo rsync -av overlay/ /mnt/arm/
+          # 禁用首次设置向导 + 设 root 密码
+          sudo chroot /mnt/arm /bin/bash -c "
+            systemctl disable armbian-firstrun 2>/dev/null || true
+            systemctl disable armbian-firstrun-config 2>/dev/null || true
+            echo 'root:1234' | chpasswd
+          " 2>/dev/null || true
           sudo mkdir -p /mnt/arm/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /etc/systemd/system/es3500-collector.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
           sudo ln -sf /etc/systemd/system/es3500-flash.service /mnt/arm/etc/systemd/system/multi-user.target.wants/ 2>/dev/null || true
