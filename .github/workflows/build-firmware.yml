@@ -19,11 +19,21 @@ jobs:
 
       - name: Download Armbian
         run: |
-          curl -L --max-time 900 -o work/base.img.xz \
-            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || {
-            curl -L --max-time 900 -o work/base.img.xz \
-              "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz" || exit 1
-          }
+          mkdir -p work
+          URLS=(
+            "https://armbian.tnahosting.net/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://mirrors.dotsrc.org/armbian-dl/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://armbian.hosthatch.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://imola.armbian.com/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+            "https://fi.mirror.armbian.de/archive/nanopim1plus/archive/Armbian_21.08.1_Nanopim1plus_bullseye_current_5.10.60.img.xz"
+          )
+          OK=false
+          for u in "${URLS[@]}"; do
+            echo "Try: $u"
+            curl -L --connect-timeout 15 --max-time 900 -o work/base.img.xz "$u" && [ $(stat -c%s work/base.img.xz) -gt 1000000 ] && { OK=true; break; }
+            rm -f work/base.img.xz
+          done
+          $OK || { echo "ALL MIRRORS FAILED"; exit 1; }
           xz -d work/base.img.xz
 
       - name: Mount rootfs as sysroot
