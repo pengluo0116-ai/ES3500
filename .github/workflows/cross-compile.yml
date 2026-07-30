@@ -1,15 +1,23 @@
-name: "Quick test"
+name: "Debug"
 
 on: [push]
 
 jobs:
-  test:
+  debug:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt update -qq && sudo apt install -y -qq g++-arm-linux-gnueabihf
-      - run: echo "=== Testing main.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp
-      - run: echo "=== Testing http_server.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/http_server.cpp
-      - run: echo "=== Testing db_manager.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/db_manager.cpp
-      - run: echo "=== Testing json_parser.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/json_parser.cpp
-      - run: echo "=== Testing alarm_checker.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/alarm_checker.cpp
+      - run: |
+          echo "=== PWD ==="
+          pwd
+          echo "=== LS ==="
+          ls -la
+          echo "=== LS src/ ==="
+          ls -la src/
+          echo "=== LS src/collector/ ==="
+          ls -la src/collector/
+          echo "=== LS include/ ==="
+          ls -la include/
+          echo "=== HEADER check ==="
+          head -5 src/collector/main.cpp
+        shell: bash
