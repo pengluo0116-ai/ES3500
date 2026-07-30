@@ -1,4 +1,4 @@
-name: "Test"
+name: "Test native compile"
 
 on: [push]
 
@@ -7,6 +7,9 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt update -qq && sudo apt install -y -qq g++-arm-linux-gnueabihf
-      - run: |
-          ERR=$(arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1) || echo "::error file=src/collector/main.cpp::${ERR//$'\n'/%0A}"
+      - run: sudo apt update -qq && sudo apt install -y -qq g++
+      - run: g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o /dev/null
+      - run: g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/http_server.cpp -o /dev/null
+      - run: g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/db_manager.cpp -o /dev/null
+      - run: g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/json_parser.cpp -o /dev/null
+      - run: g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/alarm_checker.cpp -o /dev/null
