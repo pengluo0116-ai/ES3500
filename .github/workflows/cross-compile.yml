@@ -1,22 +1,68 @@
 name: "Build"
 
-on: [push]
+on:
+  push:
+    paths:
+      - 'src/collector/**'
+      - 'include/**'
+      - '.github/workflows/**'
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - run: |
+
+      - name: Install tools
+        run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq g++-arm-linux-gnueabihf
-          arm-linux-gnueabihf-g++ --version
-      - run: |
+          sudo apt-get install -y -qq dos2unix
+
+      - name: Fix line endings
+        run: |
+          dos2unix src/collector/*.cpp src/collector/*.h include/json/*.h include/sqlite/*.h 2>/dev/null || true
           file src/collector/main.cpp
-          wc -l src/collector/main.cpp
-          echo "---COMPILE---"
-          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1
-        continue-on-error: true
-      - run: |
-          echo "---"
-          ls -la main.o 2>/dev/null || echo "No main.o"
+
+      - name: Build jsoncpp
+        run: |
+          git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git /tmp/j
+          cd /tmp/j
+          python3 amalgamate.py
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o $GITHUB_WORKSPACE/jsoncpp.o
+
+      - name: Compile sqlite3
+        run: |
+          arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite src/collector/sqlite3.c -o sqlite3.o
+
+      - name: Compile
+        id: compile
+        run: |
+          SRC=src/collector
+          INC="-I $SRC -I include -I include/json -I include/sqlite"
+          set -o pipefail
+          for f in main http_server db_manager json_parser alarm_checker; do
+            echo "::group::$f.cpp"
+            arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/$f.cpp -o $f.o 2>&1 | tee /tmp/err.txt
+            EC=${PIPESTATUS[0]}
+            if [ $EC -ne 0 ]; then
+              echo "::error file=$SRC/$f.cpp::$(cat /tmp/err.txt | tr '\n' ' ')"
+              exit $EC
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Link
+        run: |
+          arm-linux-gnueabihf-g++ -std=c++11 -O2             main.o http_server.o db_manager.o json_parser.o alarm_checker.o             sqlite3.o jsoncpp.o -lpthread -ldl -o collector
+
+      - name: Strip
+        run: |
+          arm-linux-gnueabihf-strip collector
+          file collector
+          ls -la collector
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: collector-armhf
+          path: collector
