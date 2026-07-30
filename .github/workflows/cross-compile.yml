@@ -4,44 +4,39 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps
+      - name: Setup
         run: |
-          sudo dpkg --add-architecture armhf
           sudo apt-get update -qq
           sudo apt-get install -y -qq g++-arm-linux-gnueabihf
-          sudo apt-get install -y -qq libjsoncpp-dev:armhf libsqlite3-dev:armhf || true
+          arm-linux-gnueabihf-g++ --version
 
-      - name: Verify sqlite3.c
+      - name: Build jsoncpp
         run: |
-          ls -la src/collector/sqlite3.c
-          wc -l src/collector/sqlite3.c
-          head -3 src/collector/sqlite3.c
-          tail -3 src/collector/sqlite3.c
+          git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git /tmp/j
+          cd /tmp/j && python3 amalgamate.py
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o $GITHUB_WORKSPACE/jsoncpp.o
 
-      - name: Compile sqlite3
-        run: |
-          arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite src/collector/sqlite3.c -o sqlite3.o
-          echo "sqlite3.o: $(ls -la sqlite3.o)"
-
-      - name: Compile (no jsoncpp yet)
+      - name: Build
         run: |
           SRC=src/collector
           INC="-I $SRC -I include -I include/json -I include/sqlite"
-          echo "== main.cpp =="
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/main.cpp -o main.o 2>&1; echo "RC=$?"; ls -la main.o
-          echo "== http_server.cpp =="
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/http_server.cpp -o http_server.o 2>&1; echo "RC=$?"; ls -la http_server.o
-          echo "== db_manager.cpp =="
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/db_manager.cpp -o db_manager.o 2>&1; echo "RC=$?"; ls -la db_manager.o
-          echo "== json_parser.cpp =="
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/json_parser.cpp -o json_parser.o 2>&1; echo "RC=$?"; ls -la json_parser.o
-          echo "== alarm_checker.cpp =="
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/alarm_checker.cpp -o alarm_checker.o 2>&1; echo "RC=$?"; ls -la alarm_checker.o
-          # Check which succeeded
-          for f in main http_server db_manager json_parser alarm_checker; do
-            if [ -f $f.o ]; then echo "OK: $f.o $(wc -c < $f.o) bytes"; else echo "FAIL: $f.o"; fi
-          done
+          arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite $SRC/sqlite3.c -o sqlite3.o
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/main.cpp -o main.o
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/http_server.cpp -o http_server.o
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/db_manager.cpp -o db_manager.o
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/json_parser.cpp -o json_parser.o
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/alarm_checker.cpp -o alarm_checker.o
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 *.o jsoncpp.o -lpthread -ldl -o collector
+          arm-linux-gnueabihf-strip collector
+          file collector
+          ls -la collector
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: collector-armhf
+          path: collector
