@@ -7,19 +7,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq g++-arm-linux-gnueabihf
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++-arm-linux-gnueabihf
+          sudo apt-get install -y -qq libc6-dev-armhf-cross libstdc++-12-dev-armhf-cross || true
       - run: arm-linux-gnueabihf-g++ --version
       - run: |
-          echo "=== Testing: compile without headers ==="
+          echo "=== Test bare ==="
           echo 'int main(){return 0;}' > test.cpp
-          arm-linux-gnueabihf-g++ -std=c++11 test.cpp -o test 2>&1
-          echo "RC=$?"
-          ls -la test
+          arm-linux-gnueabihf-g++ -std=c++11 test.cpp -o test 2>&1; echo "RC=$?"
+          ls -la test 2>/dev/null || echo "no binary"
       - run: |
-          echo "=== Testing: compile with minimal include ==="
+          echo "=== Test with headers ==="
           SRC=src/collector
           INC="-I $SRC -I include -I include/json -I include/sqlite"
           echo '#include "http_server.h"' > test2.cpp
           echo 'int main(){return 0;}' >> test2.cpp
-          arm-linux-gnueabihf-g++ -std=c++11 -c $INC test2.cpp -o test2.o 2>&1
-          echo "RC=$?"
+          arm-linux-gnueabihf-g++ -std=c++11 -c $INC test2.cpp -o test2.o 2>&1; echo "RC=$?"
