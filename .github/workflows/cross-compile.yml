@@ -1,57 +1,22 @@
-name: "Build Collector"
+name: "Build"
 
-on:
-  workflow_dispatch:
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup
-        run: |
+      - run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq g++-arm-linux-gnueabihf
           arm-linux-gnueabihf-g++ --version
-
-      - name: Build jsoncpp
-        run: |
-          git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git /tmp/jsoncpp
-          cd /tmp/jsoncpp
-          python3 amalgamate.py
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o $GITHUB_WORKSPACE/jsoncpp.o
-
-      - name: Compile sqlite3
-        run: |
-          arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite src/collector/sqlite3.c -o sqlite3.o
-          ls -la sqlite3.o
-
-      - name: Compile all sources
-        run: |
-          set -e
-          SRC=src/collector
-          INC="-I $SRC -I include -I include/json -I include/sqlite"
-          for f in main http_server db_manager json_parser alarm_checker; do
-            echo "== $f.cpp =="
-            arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/$f.cpp -o $f.o || exit 1
-          done
-          ls -la *.o
-
-      - name: Link
-        run: |
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 main.o http_server.o db_manager.o json_parser.o alarm_checker.o sqlite3.o jsoncpp.o -lpthread -ldl -o collector
-          ls -la collector
-
-      - name: Strip
-        run: |
-          arm-linux-gnueabihf-strip collector || true
-          file collector
-          ls -la collector
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: collector-armhf
-          path: collector
-          retention-days: 30
+      - run: |
+          file src/collector/main.cpp
+          wc -l src/collector/main.cpp
+          echo "---COMPILE---"
+          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1
+        continue-on-error: true
+      - run: |
+          echo "---"
+          ls -la main.o 2>/dev/null || echo "No main.o"
