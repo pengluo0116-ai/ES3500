@@ -60,6 +60,7 @@ void DBManager::createTables() {
 }
 
 void DBManager::exec(const std::string& sql) {
+    std::lock_guard<std::mutex> lk(m_mutex);
     char* err = nullptr;
     int rc = sqlite3_exec((sqlite3*)m_db, sql.c_str(), nullptr, nullptr, &err);
     if (rc != SQLITE_OK && err) {

@@ -13,6 +13,7 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 #include "json_parser.h"
 
 // 报警记录 (用于查询)
@@ -44,6 +45,7 @@ public:
 private:
     std::string m_db_path;      // 数据库文件路径
     void*       m_db;           // sqlite3* 句柄 (void* 避免头文件依赖)
+    std::mutex  m_mutex;
 
     void exec(const std::string& sql);                  // 执行SQL (无返回值)
     void createTables();                                // 建表DDL
