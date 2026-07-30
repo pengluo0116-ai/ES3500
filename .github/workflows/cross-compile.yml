@@ -1,23 +1,20 @@
-name: "Debug"
+name: "Compile Test"
 
 on: [push]
 
 jobs:
-  debug:
+  build:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - run: |
-          echo "=== PWD ==="
-          pwd
-          echo "=== LS ==="
-          ls -la
-          echo "=== LS src/ ==="
-          ls -la src/
-          echo "=== LS src/collector/ ==="
-          ls -la src/collector/
-          echo "=== LS include/ ==="
-          ls -la include/
-          echo "=== HEADER check ==="
-          head -5 src/collector/main.cpp
-        shell: bash
+          sudo apt update -qq
+          sudo apt install -y -qq g++-arm-linux-gnueabihf
+      - run: |
+          echo "=== Testing main.cpp ==="
+          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1 | head -30
+          echo "EXIT: $?"
+      - run: |
+          echo "=== Testing http_server.cpp ==="
+          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/http_server.cpp -o http.o 2>&1 | head -30
+          echo "EXIT: $?"
