@@ -1,58 +1,33 @@
-name: "Cross-compile Collector armhf"
+name: "Cross-compile"
 
-on:
-  push:
-    paths:
-      - 'src/collector/**'
-      - 'include/**'
-      - '.github/workflows/**'
-  workflow_dispatch:
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install cross-compiler
-        run: |
+      - run: |
           sudo apt update -qq
           sudo apt install -y -qq g++-arm-linux-gnueabihf
-
-      - name: Build jsoncpp
-        run: |
-          git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git
-          cd jsoncpp
-          python3 amalgamate.py
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o ../jsoncpp.o
-          cd ..
-
-      - name: Compile sqlite3
-        run: |
-          arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite src/collector/sqlite3.c -o sqlite3.o
-
-      - name: Compile collector
-        run: |
-          SRC=src/collector
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c -I $SRC -I include -I include/json -I include/sqlite $SRC/main.cpp -o main.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c -I $SRC -I include -I include/json -I include/sqlite $SRC/http_server.cpp -o http_server.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c -I $SRC -I include -I include/json -I include/sqlite $SRC/db_manager.cpp -o db_manager.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c -I $SRC -I include -I include/json -I include/sqlite $SRC/json_parser.cpp -o json_parser.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c -I $SRC -I include -I include/json -I include/sqlite $SRC/alarm_checker.cpp -o alarm_checker.o
-
-      - name: Link
-        run: |
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 main.o http_server.o db_manager.o json_parser.o alarm_checker.o sqlite3.o jsoncpp.o -lpthread -ldl -o collector
-
-      - name: Strip
-        run: |
-          arm-linux-gnueabihf-strip collector
-          file collector
-          ls -la collector
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: collector-armhf
-          path: collector
-          retention-days: 30
+      - run: |
+          echo "::group::Compile main.cpp"
+          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2> /tmp/err.txt
+          EC=$?
+          cat /tmp/err.txt
+          echo "::endgroup::"
+          exit $EC
+      - run: |
+          echo "::group::Compile http_server.cpp"
+          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/http_server.cpp -o http.o 2> /tmp/err.txt
+          EC=$?
+          cat /tmp/err.txt
+          echo "::endgroup::"
+          exit $EC
+      - run: |
+          echo "::group::Compile db_manager.cpp"
+          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/db_manager.cpp -o db.o 2> /tmp/err.txt
+          EC=$?
+          cat /tmp/err.txt
+          echo "::endgroup::"
+          exit $EC
