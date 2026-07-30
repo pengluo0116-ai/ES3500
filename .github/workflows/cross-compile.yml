@@ -1,4 +1,4 @@
-name: "Cross-compile"
+name: "Test"
 
 on: [push]
 
@@ -7,27 +7,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt update -qq && sudo apt install -y -qq g++-arm-linux-gnueabihf
       - run: |
-          sudo apt update -qq
-          sudo apt install -y -qq g++-arm-linux-gnueabihf
-      - run: |
-          echo "::group::Compile main.cpp"
-          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2> /tmp/err.txt
-          EC=$?
-          cat /tmp/err.txt
-          echo "::endgroup::"
-          exit $EC
-      - run: |
-          echo "::group::Compile http_server.cpp"
-          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/http_server.cpp -o http.o 2> /tmp/err.txt
-          EC=$?
-          cat /tmp/err.txt
-          echo "::endgroup::"
-          exit $EC
-      - run: |
-          echo "::group::Compile db_manager.cpp"
-          arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/db_manager.cpp -o db.o 2> /tmp/err.txt
-          EC=$?
-          cat /tmp/err.txt
-          echo "::endgroup::"
-          exit $EC
+          ERR=$(arm-linux-gnueabihf-g++ -std=c++11 -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1) || echo "::error file=src/collector/main.cpp::${ERR//$'\n'/%0A}"
