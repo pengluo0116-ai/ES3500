@@ -5,38 +5,21 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq g++-arm-linux-gnueabihf
-          arm-linux-gnueabihf-g++ --version
-
-      - name: Build jsoncpp
-        run: |
-          git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git /tmp/j
-          cd /tmp/j && python3 amalgamate.py
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o $GITHUB_WORKSPACE/jsoncpp.o
-
-      - name: Build
-        run: |
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq g++-arm-linux-gnueabihf
+      - run: arm-linux-gnueabihf-g++ --version
+      - run: |
+          echo "=== Testing: compile without headers ==="
+          echo 'int main(){return 0;}' > test.cpp
+          arm-linux-gnueabihf-g++ -std=c++11 test.cpp -o test 2>&1
+          echo "RC=$?"
+          ls -la test
+      - run: |
+          echo "=== Testing: compile with minimal include ==="
           SRC=src/collector
           INC="-I $SRC -I include -I include/json -I include/sqlite"
-          arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite $SRC/sqlite3.c -o sqlite3.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/main.cpp -o main.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/http_server.cpp -o http_server.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/db_manager.cpp -o db_manager.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/json_parser.cpp -o json_parser.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/alarm_checker.cpp -o alarm_checker.o
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 *.o jsoncpp.o -lpthread -ldl -o collector
-          arm-linux-gnueabihf-strip collector
-          file collector
-          ls -la collector
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: collector-armhf
-          path: collector
+          echo '#include "http_server.h"' > test2.cpp
+          echo 'int main(){return 0;}' >> test2.cpp
+          arm-linux-gnueabihf-g++ -std=c++11 -c $INC test2.cpp -o test2.o 2>&1
+          echo "RC=$?"
