@@ -1,4 +1,4 @@
-name: "Single file test"
+name: "Single file"
 
 on: [push]
 
@@ -9,8 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt update -qq && sudo apt install -y -qq g++
       - run: |
-          echo "File content first 3 lines:"
           head -3 src/collector/main.cpp
-          echo "---"
-          g++ -std=c++11 -Wall -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1
-          echo "Exit: $?"
+          g++ -std=c++11 -Wall -c -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp -o main.o 2>&1; RC=$?
+          echo "EXIT:$RC"
+          exit $RC
