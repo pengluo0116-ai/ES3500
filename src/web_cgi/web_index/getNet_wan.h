@@ -1,0 +1,33 @@
+#ifndef __GETNET_WAN_H__
+#define __GETNET_WAN_H__
+#include <iostream>
+#include <string>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include "conf.h"
+#include "lsystem.h"
+#include "../include/json/json.h"
+
+class getNet_wan{
+    public:
+        std::string ip;          //ip
+        std::string gateway;     //网关
+        std::string netmask;     //子网掩码
+        int proto;               //0 dhcp 1 static
+        int netIsCont;           //1网线断开 0网线连接
+    
+    public:
+        getNet_wan();            //构造函数
+        ~getNet_wan();           //析构函数
+        
+    private:
+        int cmd_getWanShell();   //获取wan口数据解析
+        int cmd_getWanDataFromFile();//从文件读取wan信息，并解析
+        
+    public:
+        int getNet_wan_data();  //获取wan口信息
+};
+
+#endif
