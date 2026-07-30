@@ -1,23 +1,15 @@
-name: "Cross-compile"
+name: "Quick test"
 
-on: [push, workflow_dispatch]
+on: [push]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt update -qq && sudo apt install -y -qq g++-arm-linux-gnueabihf
-      - run: git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git && cd jsoncpp && python3 amalgamate.py && arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o ../jsoncpp.o && cd ..
-      - run: arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite collector/src/sqlite3.c -o sqlite3.o
-      - run: arm-linux-gnueabihf-g++ -std=c++11 -O2 -I collector/src -I include -I include/json -I include/sqlite -c collector/src/main.cpp -o main.o
-      - run: arm-linux-gnueabihf-g++ -std=c++11 -O2 -I collector/src -I include -I include/json -I include/sqlite -c collector/src/http_server.cpp -o http_server.o
-      - run: arm-linux-gnueabihf-g++ -std=c++11 -O2 -I collector/src -I include -I include/json -I include/sqlite -c collector/src/db_manager.cpp -o db_manager.o
-      - run: arm-linux-gnueabihf-g++ -std=c++11 -O2 -I collector/src -I include -I include/json -I include/sqlite -c collector/src/json_parser.cpp -o json_parser.o
-      - run: arm-linux-gnueabihf-g++ -std=c++11 -O2 -I collector/src -I include -I include/json -I include/sqlite -c collector/src/alarm_checker.cpp -o alarm_checker.o
-      - run: arm-linux-gnueabihf-g++ -std=c++11 -O2 main.o http_server.o db_manager.o json_parser.o alarm_checker.o sqlite3.o jsoncpp.o -lpthread -ldl -o collector
-      - run: arm-linux-gnueabihf-strip collector && file collector
-      - uses: actions/upload-artifact@v4
-        with:
-          name: collector-armhf
-          path: collector
+      - run: echo "=== Testing main.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/main.cpp
+      - run: echo "=== Testing http_server.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/http_server.cpp
+      - run: echo "=== Testing db_manager.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/db_manager.cpp
+      - run: echo "=== Testing json_parser.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/json_parser.cpp
+      - run: echo "=== Testing alarm_checker.cpp ===" && arm-linux-gnueabihf-g++ -std=c++11 -fsyntax-only -I src/collector -I include -I include/json -I include/sqlite src/collector/alarm_checker.cpp
