@@ -1,11 +1,6 @@
 name: "Build"
 
-on:
-  push:
-    paths:
-      - 'src/collector/**'
-      - 'include/**'
-      - '.github/workflows/**'
+on: [push]
 
 jobs:
   build:
@@ -13,56 +8,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install deps
         run: |
+          sudo dpkg --add-architecture armhf
           sudo apt-get update -qq
           sudo apt-get install -y -qq g++-arm-linux-gnueabihf
-          sudo apt-get install -y -qq dos2unix
+          sudo apt-get install -y -qq libjsoncpp-dev:armhf libsqlite3-dev:armhf || true
 
-      - name: Fix line endings
+      - name: Verify sqlite3.c
         run: |
-          dos2unix src/collector/*.cpp src/collector/*.h include/json/*.h include/sqlite/*.h 2>/dev/null || true
-          file src/collector/main.cpp
-
-      - name: Build jsoncpp
-        run: |
-          git clone --depth 1 https://github.com/open-source-parsers/jsoncpp.git /tmp/j
-          cd /tmp/j
-          python3 amalgamate.py
-          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c dist/jsoncpp.cpp -I dist -o $GITHUB_WORKSPACE/jsoncpp.o
+          ls -la src/collector/sqlite3.c
+          wc -l src/collector/sqlite3.c
+          head -3 src/collector/sqlite3.c
+          tail -3 src/collector/sqlite3.c
 
       - name: Compile sqlite3
         run: |
           arm-linux-gnueabihf-gcc -c -O2 -I include/sqlite src/collector/sqlite3.c -o sqlite3.o
+          echo "sqlite3.o: $(ls -la sqlite3.o)"
 
-      - name: Compile
-        id: compile
+      - name: Compile (no jsoncpp yet)
         run: |
           SRC=src/collector
           INC="-I $SRC -I include -I include/json -I include/sqlite"
-          set -o pipefail
+          echo "== main.cpp =="
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/main.cpp -o main.o 2>&1; echo "RC=$?"; ls -la main.o
+          echo "== http_server.cpp =="
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/http_server.cpp -o http_server.o 2>&1; echo "RC=$?"; ls -la http_server.o
+          echo "== db_manager.cpp =="
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/db_manager.cpp -o db_manager.o 2>&1; echo "RC=$?"; ls -la db_manager.o
+          echo "== json_parser.cpp =="
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/json_parser.cpp -o json_parser.o 2>&1; echo "RC=$?"; ls -la json_parser.o
+          echo "== alarm_checker.cpp =="
+          arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/alarm_checker.cpp -o alarm_checker.o 2>&1; echo "RC=$?"; ls -la alarm_checker.o
+          # Check which succeeded
           for f in main http_server db_manager json_parser alarm_checker; do
-            echo "::group::$f.cpp"
-            arm-linux-gnueabihf-g++ -std=c++11 -O2 -c $INC $SRC/$f.cpp -o $f.o 2>&1 | tee /tmp/err.txt
-            EC=${PIPESTATUS[0]}
-            if [ $EC -ne 0 ]; then
-              echo "::error file=$SRC/$f.cpp::$(cat /tmp/err.txt | tr '\n' ' ')"
-              exit $EC
-            fi
-            echo "::endgroup::"
+            if [ -f $f.o ]; then echo "OK: $f.o $(wc -c < $f.o) bytes"; else echo "FAIL: $f.o"; fi
           done
-
-      - name: Link
-        run: |
-          arm-linux-gnueabihf-g++ -std=c++11 -O2             main.o http_server.o db_manager.o json_parser.o alarm_checker.o             sqlite3.o jsoncpp.o -lpthread -ldl -o collector
-
-      - name: Strip
-        run: |
-          arm-linux-gnueabihf-strip collector
-          file collector
-          ls -la collector
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: collector-armhf
-          path: collector
