@@ -1,6 +1,1 @@
-* text=auto
-*.cpp text
-*.h text
-*.c text
-*.sh text eol=lf
-*.py text
+* text=auto eol=lf
